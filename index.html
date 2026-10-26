@@ -1261,7 +1261,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-26 第 14 版（YouBike 站點接入修正）";
+const PAGE_VER = "2026-10-26 第 15 版（路線不再浮在建物上方）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1430,14 +1430,15 @@ async function addScene() {
   ml.addLayer({id: "s-roads", type: "line", source: "s-roads", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": C.road, "line-width": mPx(["get", "w"])}}, before);
   ml.addLayer({id: "s-walk", type: "line", source: "s-walk", layout: {"line-cap": "round", visibility: "none"}, paint: {"line-color": C.walk, "line-width": mPx(2.5)}}, before);
   ml.addLayer({id: "s-xing", type: "line", source: "s-xing", layout: {visibility: "none"}, paint: {"line-color": C.xing, "line-width": mPx(4), "line-dasharray": [0.25, 0.2]}}, before);
-  ml.addLayer({id: "imm-casing", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": "#1d2340", "line-width": mPx(6.5), "line-opacity": 0.75}});
-  ml.addLayer({id: "imm-route", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": ["get", "c"], "line-width": mPx(4.5)}});
-  ml.addLayer({id: "imm-done", type: "line", source: "imm-done", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": "#8a90a8", "line-width": mPx(4.6)}});
+  // 路線畫在建物底下（被前面的建物擋住才不會看起來像走在屋頂上），再疊一層淡的在最上面，被擋住的路段仍隱約看得到
+  ml.addLayer({id: "imm-casing", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": "#1d2340", "line-width": mPx(6.5), "line-opacity": 0.75}}, before);
+  ml.addLayer({id: "imm-route", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": ["get", "c"], "line-width": mPx(4.5)}}, before);
+  ml.addLayer({id: "imm-done", type: "line", source: "imm-done", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": "#8a90a8", "line-width": mPx(4.6)}}, before);
   ml.addLayer({id: "s-trunk", type: "fill-extrusion", source: "s-trunk", layout: {visibility: "none"}, paint: {"fill-extrusion-color": C.trunk, "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": 0}});
   ml.addLayer({id: "s-leaf", type: "fill-extrusion", source: "s-leaf", layout: {visibility: "none"}, paint: {"fill-extrusion-color": C.leaf, "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-opacity": 0.95}});
-  ["imm-casing", "imm-route", "imm-done"].forEach(id => ml.moveLayer(id));   // 路線畫在建物與樹上面，被擋住也看得到
+  ml.addLayer({id: "imm-ghost", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": ["get", "c"], "line-width": mPx(3), "line-opacity": 0.28}});
 }
-const IMM_LAYERS = ["s-bg", "s-parks", "s-roads", "s-walk", "s-xing", "imm-casing", "imm-route", "imm-done", "s-trunk", "s-leaf"];
+const IMM_LAYERS = ["s-bg", "s-parks", "s-roads", "s-walk", "s-xing", "imm-casing", "imm-route", "imm-done", "s-trunk", "s-leaf", "imm-ghost"];
 function immStyle(on) {
   const C = sceneColors();
   IMM_LAYERS.forEach(id => ml.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
