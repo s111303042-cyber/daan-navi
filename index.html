@@ -215,6 +215,9 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
 #immGo[hidden]{display:none}
 .gpsraw{width:12px;height:12px;border-radius:50%;background:#8a90a8;border:2px solid #fff;opacity:.85}
 .walker{width:22px;height:22px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 6px rgb(26 115 232 / .25),0 2px 6px rgb(0 0 0 / .35);position:relative}
+.walker.riding{background:#e8710a;box-shadow:0 0 0 6px rgb(232 113 10 / .28),0 2px 6px rgb(0 0 0 / .35)}
+.walker.riding::after{border-bottom-color:#e8710a}
+.sig3d.stn3d{background:#e8710a;color:#fff}
 .walker::after{content:"";position:absolute;left:50%;top:-13px;transform:translateX(-50%);border:7px solid transparent;border-bottom:10px solid #1a73e8}
 .lm{display:inline-flex;align-items:center;gap:4px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:1px 7px 1px 2px;font-size:11.5px;white-space:nowrap;box-shadow:0 1px 4px rgb(0 0 0 / .25);transform:translate(-9px,-9px)}
 .lm i{font-style:normal;width:16px;height:16px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:700}
@@ -871,9 +874,17 @@ function drawBike() {
     : `<li><span class="ic">${i === 0 && first ? "起" : "走"}</span><span class="t">${i === 0 ? "" : x.turn + "，"}${x.lab === "斑馬線" ? "走斑馬線" : "沿" + x.lab}<br><span class="s">步行 ${Math.round(x.l)} m・遮蔭 ${Math.round(100 - x.sw / x.l * 100)}%</span></span>${tag(x.uw / x.l)}</li>`);
   if (m.w1.path.length > 1) li.push(...walkList(m.w1, true)); else li.push(`<li><span class="ic">起</span><span class="t">起點就在借車站旁</span><span></span></li>`);
   li.push(`<li class="stop"><span class="ic">借</span><span class="t">在 <b>${m.rent.name}</b> 借車<br><span class="s">約 1 分鐘・${state.bikeType}</span></span>${tag(nodeUtci(s)[m.rent.w])}</li>`);
-  // 騎車段：同一條路合併
+  for (const g of bikeGroups(m.bk)) li.push(`<li class="bike"><span class="ic">騎</span><span class="t">${g.turn === "出發" ? "" : g.turn + "，"}騎${g.lab}<br><span class="s">${Math.round(g.l)} m・約 ${fmtMin(g.t)}${g.t < 1 ? "" : " 分"}</span></span>${uChip(g.ut / g.t)}</li>`);
+  li.push(`<li class="stop"><span class="ic">還</span><span class="t">在 <b>${m.ret.name}</b> 還車<br><span class="s">約 1 分鐘・若滿站，系統會給 15 分鐘免費延長去附近站還</span></span>${tag(nodeUtci(s)[m.ret.w])}</li>`);
+  if (m.w2.path.length > 1) li.push(...walkList(m.w2, false));
+  li.push(`<li><span class="ic">終</span><span class="t">抵達${state.B.name.startsWith("地圖上") ? "終點" : state.B.name}</span><span></span></li>`);
+  $("#stepsTitle").textContent = `${selCool ? KIND_NAME[state.kind] : "最快"} YouBike 路線（${slotLabel(s)} 出發）`;
+  $("#steps").innerHTML = li.join("");
+}
+// 騎車段：同一條路合併成一步（路線說明、沉浸式轉彎提示共用）；i0 = 這一步從第幾段開始
+function bikeGroups(bk) {
   const KB = ["道路", "人車共道", "自行車道"], groups = [];
-  for (const g of m.bk.segs) {           // 先依路名分段（沒路名的短段併入前一段），再把同名的相鄰段合併
+  for (const g of bk.segs) {           // 先依路名分段（沒路名的短段併入前一段），再把同名的相鄰段合併
     const nm = BK.J.names[BK.J.ename[g.e]] || "", last = groups[groups.length - 1], kl = [0, 0, 0]; kl[BK.J.ekind[g.e]] = g.l;
     if (last && (last.nm === nm || (!nm && g.l < 40))) { last.l += g.l; last.t += g.t; last.ut += g.u * g.t; last.kl[BK.J.ekind[g.e]] += g.l; last.nodes.push(g.b); }
     else groups.push({nm, l: g.l, t: g.t, ut: g.u * g.t, kl, nodes: [g.a, g.b]});
@@ -884,19 +895,14 @@ function drawBike() {
     if (p && (g.l < 40 || p.nm === g.nm || (!g.nm && p.nm && g.l < 120))) { p.l += g.l; p.t += g.t; p.ut += g.ut; g.kl.forEach((x, i) => p.kl[i] += x); p.nodes.push(...g.nodes.slice(1)); }
     else gm.push(g);
   }
-  for (const g of gm) { const k = g.kl.indexOf(Math.max(...g.kl)); g.lab = g.nm ? `${g.nm}（${KB[k]}為主）` : (k === 0 ? "巷弄" : KB[k]); }
   const brg = (a, b) => Math.atan2(BK.bx[b] - BK.bx[a], BK.by[b] - BK.by[a]) * 180 / Math.PI;
-  let pg = null;
+  let pg = null, i0 = 0;
   for (const g of gm) {
-    const turn = pg ? turnWord(brg(g.nodes[0], g.nodes[Math.min(3, g.nodes.length - 1)]) - brg(pg.nodes[Math.max(0, pg.nodes.length - 4)], pg.nodes[pg.nodes.length - 1])) : "出發";
-    li.push(`<li class="bike"><span class="ic">騎</span><span class="t">${pg ? turn + "，" : ""}騎${g.lab}<br><span class="s">${Math.round(g.l)} m・約 ${fmtMin(g.t)}${g.t < 1 ? "" : " 分"}</span></span>${tag(g.ut / g.t)}</li>`);
-    pg = g;
+    const k = g.kl.indexOf(Math.max(...g.kl)); g.lab = g.nm ? `${g.nm}（${KB[k]}為主）` : (k === 0 ? "巷弄" : KB[k]);
+    g.turn = pg ? turnWord(brg(g.nodes[0], g.nodes[Math.min(3, g.nodes.length - 1)]) - brg(pg.nodes[Math.max(0, pg.nodes.length - 4)], pg.nodes[pg.nodes.length - 1])) : "出發";
+    g.i0 = i0; i0 += g.nodes.length - 1; pg = g;
   }
-  li.push(`<li class="stop"><span class="ic">還</span><span class="t">在 <b>${m.ret.name}</b> 還車<br><span class="s">約 1 分鐘・若滿站，系統會給 15 分鐘免費延長去附近站還</span></span>${tag(nodeUtci(s)[m.ret.w])}</li>`);
-  if (m.w2.path.length > 1) li.push(...walkList(m.w2, false));
-  li.push(`<li><span class="ic">終</span><span class="t">抵達${state.B.name.startsWith("地圖上") ? "終點" : state.B.name}</span><span></span></li>`);
-  $("#stepsTitle").textContent = `${selCool ? KIND_NAME[state.kind] : "最快"} YouBike 路線（${slotLabel(s)} 出發）`;
-  $("#steps").innerHTML = li.join("");
+  return gm;
 }
 function showStations(on) {
   if (stnLayer) { map.removeLayer(stnLayer); stnLayer = null; }
@@ -1200,7 +1206,7 @@ async function set3D(on) {
 { // 平面地圖更新時，3D 地圖跟著更新
   const _draw = draw, _drawBike = drawBike, _setSlot = setSlot;
   draw = function () { _draw(); sync3D(); $("#immGo").hidden = false; };
-  drawBike = function () { _drawBike(); sync3D(); $("#immGo").hidden = true; };
+  drawBike = function () { _drawBike(); sync3D(); $("#immGo").hidden = false; };
   setSlot = function (s) { _setSlot(s); sync3D(); };
 }
 
@@ -1369,45 +1375,83 @@ function immStyle(on) {
   ml.setPaintProperty("bld", "fill-extrusion-opacity", on ? 0.97 : 0.92);
   mlPhoto(on);
 }
-// 路線 → 時間軸：每段走路時間＋紅燈停等
+// 路線 → 時間軸。步行與 YouBike 共用同一種格式：
+//   pts 路線上的點（經緯度＋公尺座標）、cum 每點的累積距離、segs 每段（長度、UTCI、曬／蔭、速度、是否騎車）
+//   tl 時間軸（紅燈、借還車停留、移動）、man 轉彎與停留提示
 function immBuild(m, s) {
-  const P = m.path, cum = [0];
-  m.segs.forEach((g, i) => cum.push(cum[i] + g.l));
-  const tl = []; let t = 0;
-  m.segs.forEach((g, i) => {
-    const w = g.wait ? g.wait.sec : (g.xwait || 0);
-    if (w > 0) { tl.push({wait: w, d: cum[i], t0: t, t1: t + w, i}); t += w; }
-    tl.push({d0: cum[i], d1: cum[i + 1], t0: t, t1: t + g.l / SPEED, i}); t += g.l / SPEED;
-  });
-  // 轉彎提示：把路線說明的每一步對到路線上的位置
-  const st = steps(m, s), man = []; let pi = 0;
-  for (const x of st) {
-    if (x.wait || x.xing) {
-      let i = pi; while (i < m.segs.length && !(x.wait ? m.segs[i].wait : (m.segs[i].xwait && xBase[m.segs[i].e] >= 5))) i++;
-      if (i >= m.segs.length) continue; pi = i; man.push({...x, d: cum[i]});
-    } else {
-      let i = P.indexOf(x.nodes[0], pi); if (i < 0) i = pi; pi = i; man.push({...x, d: cum[i]});
+  const R = {m, s, pts: [], cum: [0], segs: [], tl: [], man: [], T: 0, bike: !!m.bk};
+  const pt = (lon, lat) => ({lon, lat, x: (lon - D.lon0) * D.kx, y: (lat - D.lat0) * D.ky});
+  const dNow = () => R.cum[R.cum.length - 1];
+  const push = (q, g) => {   // 新增一段到 q
+    const a = R.pts[R.pts.length - 1]; R.pts.push(q); R.cum.push(dNow() + g.l);
+    R.tl.push({d0: R.cum[R.cum.length - 2], d1: dNow(), t0: R.T, t1: R.T + g.l / g.v, i: R.segs.length, v: g.v}); R.T += g.l / g.v;
+    R.segs.push({...g, a, b: q});
+  };
+  const pause = (sec, extra) => { R.tl.push({wait: sec, d: dNow(), t0: R.T, t1: R.T + sec, i: Math.max(R.segs.length - 1, 0), ...extra}); R.T += sec; };
+  const link = (q, u) => {   // 站點和路網節點之間的小段距離：直線走過去
+    if (!R.pts.length) { R.pts.push(q); return; }
+    const a = R.pts[R.pts.length - 1], l = Math.hypot(q.x - a.x, q.y - a.y);
+    if (l > 1) push(q, {l, u, sun: null, v: SPEED, bike: false});
+  };
+  const walkLeg = w => {
+    if (!w || !w.segs || !w.segs.length) return;
+    const P = w.path, i0 = R.segs.length;
+    link(pt(D.lon[P[0]], D.lat[P[0]]), w.segs[0].u);
+    const j0 = R.segs.length;
+    w.segs.forEach(g => {
+      const wt = g.wait ? g.wait.sec : (g.xwait || 0);
+      if (wt > 0) pause(wt);
+      push(pt(D.lon[g.b], D.lat[g.b]), {l: g.l, u: g.u, sun: g.sun, v: SPEED, bike: false});
+    });
+    // 轉彎提示：把路線說明的每一步對到路線上的位置
+    let pi = 0;
+    for (const x of steps(w, s)) {
+      if (x.wait || x.xing) {
+        let i = pi; while (i < w.segs.length && !(x.wait ? w.segs[i].wait : (w.segs[i].xwait && xBase[w.segs[i].e] >= 5))) i++;
+        if (i >= w.segs.length) continue; pi = i; R.man.push({...x, d: R.cum[j0 + i]});
+      } else {
+        let i = P.indexOf(x.nodes[0], pi); if (i < 0) i = pi; pi = i; R.man.push({...x, d: R.cum[j0 + i]});
+      }
     }
+    void i0;
+  };
+  if (!m.bk) walkLeg(m);
+  else {
+    const nu = nodeUtci(s);
+    walkLeg(m.w1);
+    link(pt(m.rent.lon, m.rent.lat), nu[m.rent.w]);
+    R.man.push({stop: true, ar: "借", text: `到 ${m.rent.name} 借車`, d: dNow()});
+    pause(RENT_MIN * 60, {stop: {ar: "借", lab: "借車", name: m.rent.name}});
+    const J = BK.J, b0 = m.bk.path[0];
+    link(pt(J.lon[b0], J.lat[b0]), m.bk.segs.length ? m.bk.segs[0].u : nu[m.rent.w]);
+    const j0 = R.segs.length;
+    for (const g of m.bk.segs) push(pt(J.lon[g.b], J.lat[g.b]), {l: g.l, u: g.u, sun: null, v: g.l / Math.max(g.t * 60, 1e-3), bike: true});
+    for (const g of bikeGroups(m.bk)) R.man.push({bike: true, turn: g.turn, lab: g.lab, d: R.cum[j0 + g.i0]});
+    link(pt(m.ret.lon, m.ret.lat), nu[m.ret.w]);
+    R.man.push({stop: true, ar: "還", text: `到 ${m.ret.name} 還車`, d: dNow()});
+    pause(RETURN_MIN * 60, {stop: {ar: "還", lab: "還車", name: m.ret.name}});
+    walkLeg(m.w2);
   }
-  return {m, s, P, cum, tl, T: t, L: cum[cum.length - 1], man};
+  R.L = dNow();
+  return R;
 }
 function immPos(d) {
   const R = immM, c = R.cum; let i = 0, lo = 0, hi = c.length - 2;
   d = Math.min(Math.max(d, 0), R.L);
   while (lo <= hi) { const mid = (lo + hi) >> 1; if (c[mid] <= d) { i = mid; lo = mid + 1; } else hi = mid - 1; }
-  i = Math.min(i, R.P.length - 2);
-  const a = R.P[i], b = R.P[i + 1], f = c[i + 1] > c[i] ? (d - c[i]) / (c[i + 1] - c[i]) : 0;
-  return {lon: D.lon[a] + (D.lon[b] - D.lon[a]) * f, lat: D.lat[a] + (D.lat[b] - D.lat[a]) * f, i};
+  i = Math.max(Math.min(i, R.pts.length - 2), 0);
+  const a = R.pts[i], b = R.pts[Math.min(i + 1, R.pts.length - 1)], f = c[i + 1] > c[i] ? (d - c[i]) / (c[i + 1] - c[i]) : 0;
+  return {lon: a.lon + (b.lon - a.lon) * f, lat: a.lat + (b.lat - a.lat) * f, i};
 }
 function immState(t) {   // 時間 t（秒）→ 位置與狀態
   const R = immM; t = Math.min(Math.max(t, 0), R.T);
   let k = R.tl.findIndex(p => t < p.t1); if (k < 0) k = R.tl.length - 1;
   const p = R.tl[k];
-  if (p.wait) return {d: p.d, waitLeft: p.t1 - t, seg: p.i};
+  if (p.wait) return {d: p.d, waitLeft: p.t1 - t, seg: p.i, stop: p.stop};
   return {d: p.d0 + (p.d1 - p.d0) * Math.min((t - p.t0) / Math.max(p.t1 - p.t0, 1e-6), 1), waitLeft: 0, seg: p.i};
 }
 const brg = (p, q) => Math.atan2((q.lon - p.lon) * D.kx, (q.lat - p.lat) * D.ky) * 180 / Math.PI;
-const arrowOf = x => x.wait ? "燈" : x.xing ? "⇄" : x.turn === "左轉" ? "←" : x.turn === "右轉" ? "→" : x.turn === "迴轉" ? "↶" : "↑";
+const arrowOf = x => x.stop ? x.ar : x.wait ? "燈" : x.xing ? "⇄" : x.turn === "左轉" ? "←" : x.turn === "右轉" ? "→" : x.turn === "迴轉" ? "↶" : "↑";
 const fmtD = m => m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.max(Math.round(m / 5) * 5, 0)} m`;
 const clock = sec => { const m0 = state.slot * 30 + Math.round(sec / 60); return `${String(Math.floor(m0 / 60) % 24).padStart(2, "0")}:${String(m0 % 60).padStart(2, "0")}`; };
 function immFrame(now) {
@@ -1428,13 +1472,18 @@ function immRender(dt) {
   const diff = ((b - IMM.cb + 540) % 360) - 180; IMM.cb += diff * Math.min(1, dt * 2.5 || 1);   // 鏡頭轉向平滑
   immMk.setLngLat([pos.lon, pos.lat]).setRotation(b);
   ml.getSource("imm-done").setData({type: "Feature", properties: {}, geometry: {type: "LineString",
-    coordinates: R.P.slice(0, pos.i + 1).map(n => [D.lon[n], D.lat[n]]).concat([[pos.lon, pos.lat]])}});
+    coordinates: R.pts.slice(0, pos.i + 1).map(q => [q.lon, q.lat]).concat([[pos.lon, pos.lat]])}});
+  const g = R.segs[Math.min(S.seg, R.segs.length - 1)], riding = !!g && g.bike && !S.waitLeft;
+  if (immMk.getElement().classList.contains("riding") !== riding) immMk.getElement().classList.toggle("riding", riding);
   $("#immSv").href = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${pos.lat.toFixed(6)},${pos.lon.toFixed(6)}&heading=${Math.round((b + 360) % 360)}`;
   if (IMM.follow) ml.jumpTo({center: [pos.lon, pos.lat], bearing: IMM.cb, pitch: 60, zoom: 19.2, padding: {top: Math.round(ml.getContainer().clientHeight * 0.42), bottom: 0, left: 0, right: 0}});
   // 上方提示
   const ban = $("#immBan"); let nx = R.man.findIndex(x => x.d > S.d + 0.5);
   if (done) { ban.className = "ban"; $("#immAr").textContent = "終"; $("#immD").textContent = "抵達"; $("#immS").textContent = state.B.name.startsWith("地圖上") ? "終點" : state.B.name; $("#immThen").hidden = true; }
-  else if (S.waitLeft > 0) {
+  else if (S.stop) {
+    ban.className = "ban wait"; $("#immAr").textContent = S.stop.ar; $("#immD").textContent = `${S.stop.lab}・約 ${Math.ceil(S.waitLeft)} 秒`;
+    $("#immS").textContent = S.stop.name; $("#immThen").hidden = true;
+  } else if (S.waitLeft > 0) {
     const w = R.man.find(x => x.wait && Math.abs(x.d - S.d) < 0.6);
     ban.className = "ban wait"; $("#immAr").textContent = "燈"; $("#immD").textContent = `等紅燈 ${Math.ceil(S.waitLeft)} 秒`;
     $("#immS").textContent = w ? w.text : "號誌路口"; $("#immThen").hidden = true;
@@ -1444,27 +1493,29 @@ function immRender(dt) {
     if (!x) { $("#immAr").textContent = "終"; $("#immD").textContent = fmtD(R.L - S.d); $("#immS").textContent = "抵達終點"; }
     else {
       $("#immAr").textContent = arrowOf(x); $("#immD").textContent = fmtD(x.d - S.d);
-      $("#immS").textContent = x.wait ? `${x.text}，約等 ${x.sec} 秒` : x.xing ? x.text : `${x.turn}，${x.lab === "斑馬線" ? "走斑馬線" : "沿" + x.lab}`;
+      const tw = x.turn === "出發" ? "" : x.turn + "，";
+      $("#immS").textContent = x.stop ? x.text : x.wait ? `${x.text}，約等 ${x.sec} 秒` : x.xing ? x.text : x.bike ? `${tw}騎${x.lab}` : `${tw}${x.lab === "斑馬線" ? "走斑馬線" : "沿" + x.lab}`;
     }
     const y = nx >= 0 ? R.man[nx + 1] : null;
     $("#immThen").hidden = !y || !x || y.d - x.d > 60;
-    if (y && x && y.d - x.d <= 60) $("#immThen").textContent = `接著 ${arrowOf(y)} ${y.wait ? "等紅燈" : y.xing ? "過馬路" : y.turn}`;
+    if (y && x && y.d - x.d <= 60) $("#immThen").textContent = `接著 ${arrowOf(y)} ${y.stop ? y.text : y.wait ? "等紅燈" : y.xing ? "過馬路" : y.turn === "出發" ? (y.bike ? "騎車" : "步行") : y.turn}`;
   }
   // 下方數字
-  const g = R.m.segs[Math.min(S.seg, R.m.segs.length - 1)], u = g.u;
+  const u = g.u;
   $("#immEta").textContent = IMM.gps ? clockNow(R.T - tNow) : clock(R.T); $("#immMin").textContent = Math.max(Math.ceil((R.T - tNow) / 60), 0); $("#immM").textContent = Math.round(R.L - S.d);
-  const uc = $("#immU"); uc.textContent = `${u.toFixed(1)}°C${g.sun > 0.5 ? "・曬" : "・蔭"}`; uc.style.background = uColor(u); uc.style.color = u < 9 ? "#fff" : "#1d2523";
+  const uc = $("#immU"); uc.textContent = `${u.toFixed(1)}°C${g.bike ? "・騎車" : g.sun == null ? "" : g.sun > 0.5 ? "・曬" : "・蔭"}`; uc.style.background = uColor(u); uc.style.color = u < 9 ? "#fff" : "#1d2523";
   if (!IMM.gps && document.activeElement !== $("#immBar")) $("#immBar").value = Math.round(IMM.t / R.T * 1000);
 }
+function immModeTxt() { $("#immMode").textContent = `模擬播放（步行 1.2 m/s${immM && immM.bike ? "、騎車依 YouBike 紀錄車速、借還車各 1 分鐘" : ""}，含紅燈等待）`; }
 function immSetPlay(p) { IMM.play = p; $("#immPlay").textContent = p ? "❚❚" : "▶"; $("#immPlay").setAttribute("aria-label", p ? "暫停" : "播放"); if (p && IMM.t >= immM.T) IMM.t = 0; }
 async function immEnter() {
-  const r = state.res; if (!r || r.bike) { toast("沉浸式導航目前只支援步行路線"); return; }
+  const r = state.res; if (!r) return;
   const m = state.sel === "cool" ? r.cool : r.fast;
   IMM.was3d = ml3d;
   if (!ml3d) await set3D(true);
   if (!ml3d) return;
   try { await addScene(); } catch (e) { toast("街景元素（scene3d.json）載入失敗", 5000); return; }
-  immLoad(m);
+  immLoad(m); immModeTxt();
   immStyle(true);
   $("#panel").hidden = true; $("#legend").hidden = true; $("#imm").hidden = false;
   $(".maplibregl-ctrl-top-right") && ($(".maplibregl-ctrl-top-right").style.display = "none");
@@ -1475,14 +1526,14 @@ async function immEnter() {
 }
 function immLoad(m) {   // 把一條路線放進沉浸式畫面（第一次進入、偏離重新規劃都用這個）
   immM = immBuild(m, state.slot);
-  ml.getSource("imm-route").setData({type: "FeatureCollection", features: m.segs.map(g => ({type: "Feature", properties: {c: uColor(g.u)},
-    geometry: {type: "LineString", coordinates: [[D.lon[g.a], D.lat[g.a]], [D.lon[g.b], D.lat[g.b]]]}}))});
+  ml.getSource("imm-route").setData({type: "FeatureCollection", features: immM.segs.map(g => ({type: "Feature", properties: {c: uColor(g.u)},
+    geometry: {type: "LineString", coordinates: [[g.a.lon, g.a.lat], [g.b.lon, g.b.lat]]}}))});
   if (!immMk) { const el = document.createElement("div"); el.className = "walker"; immMk = new maplibregl.Marker({element: el, rotationAlignment: "map", pitchAlignment: "map"}); }
-  immMk.setLngLat([D.lon[m.path[0]], D.lat[m.path[0]]]).addTo(ml);
+  immMk.setLngLat([immM.pts[0].lon, immM.pts[0].lat]).addTo(ml);
   immSig.forEach(x => x.remove()); immSig = [];
   immLmkBuild(m);
-  for (const x of immM.man) if (x.wait) {
-    const p = immPos(x.d), el = document.createElement("div"); el.className = "sig3d"; el.textContent = `燈 ${x.sec}s`;
+  for (const x of immM.man) if (x.wait || x.stop) {
+    const p = immPos(x.d), el = document.createElement("div"); el.className = x.stop ? "sig3d stn3d" : "sig3d"; el.textContent = x.stop ? `${x.ar}車` : `燈 ${x.sec}s`;
     immSig.push(new maplibregl.Marker({element: el, anchor: "bottom", offset: [0, -16]}).setLngLat([p.lon, p.lat]).addTo(ml));
   }
 }
@@ -1490,14 +1541,14 @@ function immLoad(m) {   // 把一條路線放進沉浸式畫面（第一次進�
 let immLmk = [];
 function immLmkBuild(m) {
   immLmk.forEach(x => x.mk.remove()); immLmk = [];
-  const P = m.path, cum = immM.cum, kx = D.kx, ky = D.ky;
-  const xs = P.map(n => X[n]), ys = P.map(n => Y[n]);
+  const cum = immM.cum, kx = D.kx, ky = D.ky;
+  const xs = immM.pts.map(q => q.x), ys = immM.pts.map(q => q.y);
   const x0 = Math.min(...xs) - 40, x1 = Math.max(...xs) + 40, y0 = Math.min(...ys) - 40, y1 = Math.max(...ys) + 40;
   for (const x of LM) {
     const px = (x.lon - D.lon0) * kx, py = (x.lat - D.lat0) * ky;
     if (px < x0 || px > x1 || py < y0 || py > y1) continue;
     let bd = Infinity, bdist = 0;
-    for (let i = 0; i + 1 < P.length; i++) {
+    for (let i = 0; i + 1 < xs.length; i++) {
       const ax = xs[i], ay = ys[i], vx = xs[i + 1] - ax, vy = ys[i + 1] - ay, L2 = vx * vx + vy * vy;
       const f = L2 ? Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / L2)) : 0, d = Math.hypot(ax + vx * f - px, ay + vy * f - py);
       if (d < bd) { bd = d; bdist = cum[i] + f * (cum[i + 1] - cum[i]); }
@@ -1536,8 +1587,8 @@ const clockNow = sec => { const d = new Date(Date.now() + sec * 1000); return `$
 function immSnap(lat, lon, dPrev) {
   const R = immM, x = (lon - D.lon0) * D.kx, y = (lat - D.lat0) * D.ky;
   let best = null;
-  for (let i = 0; i + 1 < R.P.length; i++) {
-    const a = R.P[i], b = R.P[i + 1], ax = X[a], ay = Y[a], vx = X[b] - ax, vy = Y[b] - ay, L2 = vx * vx + vy * vy;
+  for (let i = 0; i + 1 < R.pts.length; i++) {
+    const a = R.pts[i], b = R.pts[i + 1], ax = a.x, ay = a.y, vx = b.x - ax, vy = b.y - ay, L2 = vx * vx + vy * vy;
     const f = L2 ? Math.min(Math.max(((x - ax) * vx + (y - ay) * vy) / L2, 0), 1) : 0;
     const dist = Math.hypot(ax + vx * f - x, ay + vy * f - y), d = R.cum[i] + (R.cum[i + 1] - R.cum[i]) * f;
     const score = dist + (d < dPrev - 40 || d > dPrev + 200 ? 25 : 0);   // 離上一個位置太遠的路段扣分
@@ -1547,7 +1598,7 @@ function immSnap(lat, lon, dPrev) {
 }
 function immTimeAt(d) {   // 路線上距離 d 對應的預估時間（含之前的紅燈）
   const tl = immM.tl;
-  for (const p of tl) if (!p.wait && d < p.d1) return p.t0 + Math.max(d - p.d0, 0) / SPEED;
+  for (const p of tl) if (!p.wait && d < p.d1) return p.t0 + Math.max(d - p.d0, 0) / p.v;
   return immM.T;
 }
 function immGpsState() {
@@ -1559,7 +1610,7 @@ function immReroute(lat, lon) {
   IMM.lastRe = Date.now(); IMM.off = 0;
   const keep = state.sel;
   setPoint("A", lat, lon, "目前位置");          // 會重算最涼／最快路線
-  const r = state.res; if (!r || r.bike) return;
+  const r = state.res; if (!r) return;
   state.sel = keep;
   immLoad(keep === "cool" ? r.cool : r.fast);
   mlMarkers.forEach(m => m.getElement().style.display = "none");
@@ -1597,7 +1648,7 @@ async function immGpsOn() {
   try { IMM.lock = await navigator.wakeLock.request("screen"); } catch (e) { IMM.lock = null; }   // 導航中不讓螢幕關掉（不支援就算了）
   $("#immGps").setAttribute("aria-pressed", true); $("#immRe").hidden = true;
   for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = true;
-  $("#immMode").textContent = "跟隨定位中（預估時間以步行 1.2 m/s 與紅燈平均等待計算）";
+  $("#immMode").textContent = `跟隨定位中（預估時間以步行 1.2 m/s${immM.bike ? "、騎車依 YouBike 紀錄車速" : ""}與紅燈平均等待計算）`;
 }
 function immGpsOff() {
   if (IMM.watch != null) navigator.geolocation.clearWatch(IMM.watch);
@@ -1606,7 +1657,7 @@ function immGpsOff() {
   immRaw && immRaw.remove();
   $("#immGps").setAttribute("aria-pressed", false);
   for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = false;
-  $("#immMode").textContent = "模擬播放（依步行 1.2 m/s 與紅燈等待）";
+  immModeTxt();
   IMM.t = immM ? immTimeAt(IMM.dd) : 0;
 }
 function immWire() {
