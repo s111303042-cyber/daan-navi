@@ -200,6 +200,8 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
 .lm3d{transform:none;font-size:12.5px;padding:2px 9px 2px 3px}
 .lm3d i{width:18px;height:18px}
 .osm em{color:var(--shade)!important}
+#rainFx{position:absolute;inset:0;z-index:1150;pointer-events:none;width:100%;height:100%}
+#rainFx[hidden]{display:none}
 .sig3d{background:#2a3140;color:#fff;border:2px solid #fff;border-radius:7px;font-size:11px;padding:1px 5px;box-shadow:0 2px 6px rgb(0 0 0 / .3);white-space:nowrap}
 </style>
 
@@ -232,6 +234,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
       <div class="row">
         <label class="time" for="t"><span class="hint">出發</span><output id="tout">14:00</output><input id="t" type="range" min="12" max="40" step="1" value="28"></label>
       </div>
+      <div class="hint" id="wxLine" hidden></div>
       <div class="row" style="justify-content:space-between">
         <div class="seg" role="group" aria-label="點地圖設定">
           <button id="pickA" aria-pressed="false">點選起點</button><button id="pickB" aria-pressed="true">點選終點</button>
@@ -250,7 +253,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
       </div>
       <div class="row">
         <button class="iconbtn" id="b3d" aria-pressed="false" title="用國土測繪中心三維建物模型，以立體視角顯示建物高度">3D 建物：關</button>
-        <button class="iconbtn" id="photo" aria-pressed="false" title="底圖改用內政部國土測繪中心正射航照（需要網路）">航照：關</button>
+        <button class="iconbtn" id="photo" aria-pressed="false" title="平面地圖與 3D 鳥瞰的底圖改用內政部國土測繪中心正射航照（需要網路；沉浸式導航不使用）">航照：關</button>
         <button class="iconbtn" id="lmk" aria-pressed="true" title="顯示捷運出口、公園、醫院、超商等地標（OpenStreetMap）；放大地圖會顯示更多">地標：開</button>
         <span class="hint" id="b3dHint">立體顯示建物高度（右鍵或雙指拖曳可旋轉）</span>
       </div>
@@ -274,10 +277,12 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
     <div class="cats" id="lgCats"><span>32–38</span><span>強熱壓力</span><span>38–46</span><span>非常強熱壓力</span><span>&gt;46</span><span>極端熱壓力</span></div>
   </div>
   <div id="toast" hidden></div>
+  <canvas id="rainFx" hidden aria-hidden="true"></canvas>
   <div id="imm" hidden aria-label="沉浸式導航">
     <div>
       <div class="ban" id="immBan" role="status" aria-live="polite"><span class="ar" id="immAr">↑</span><span class="d" id="immD">–</span><span class="s" id="immS"></span></div>
       <div class="then" id="immThen" hidden></div>
+      <div class="then" id="immWx" hidden></div>
     </div>
     <div style="display:flex;flex-direction:column">
       <button class="iconbtn recenter" id="immRe" hidden>回到導航視角</button>
@@ -297,7 +302,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
           <button class="iconbtn" id="immHeat" aria-pressed="false" title="地面顯示 UTCI 熱度圖">熱度圖</button>
           <button class="iconbtn" id="immX">結束</button>
         </div>
-        <div class="note"><span id="immMode">模擬播放（依步行 1.2 m/s 與紅燈等待）</span>・光影：<span id="immSunTxt"></span>・建物、航照：國土測繪中心・車道與公園：© OpenStreetMap contributors・樹：臺北市行道樹與公園樹</div>
+        <div class="note"><span id="immMode">模擬播放（依步行 1.2 m/s 與紅燈等待）</span>・光影：<span id="immSunTxt"></span>・建物：國土測繪中心・車道與公園：© OpenStreetMap contributors・樹：臺北市行道樹與公園樹</div>
       </div>
     </div>
   </div>
@@ -702,11 +707,11 @@ function setPhoto(on) {
   else { photoTiles.remove(); bldPng.setOpacity(1); utciLayer.setOpacity(0.78); }
   if (ml) mlPhoto();
 }
-function mlPhoto(imm = IMM.on) {   // 3D：航照當地面；沉浸式時把簡化的車道、人行道、公園藏起來，讓航照的真實路面露出來
+function mlPhoto(imm = IMM.on) {   // 3D 鳥瞰：航照當地面；沉浸式（第一人稱）不用航照（10/26 實測：視角低時模糊、圖磚浮水印很明顯）
   if (!ml.getLayer("photo")) return;
-  ml.setLayoutProperty("photo", "visibility", photoOn ? "visible" : "none");
-  if (imm) for (const id of ["s-bg", "s-roads", "s-walk", "s-parks", "s-xing"]) ml.setLayoutProperty(id, "visibility", photoOn ? "none" : "visible");
-  ml.setPaintProperty("utci", "raster-opacity", photoOn ? 0.45 : imm ? 0.55 : 0.8);
+  const on = photoOn && !imm;
+  ml.setLayoutProperty("photo", "visibility", on ? "visible" : "none");
+  ml.setPaintProperty("utci", "raster-opacity", on ? 0.45 : imm ? 0.55 : 0.8);
 }
 let map, utciLayer, routeLayers = [], sigLayer, mA, mB;
 function initMap() {
@@ -893,7 +898,7 @@ async function setTravel(t) {
 }
 function setRain(on) {
   if (on && !SH) { toast("雨天模式暫停公開：騎樓資料正在申請使用授權。", 5000); return; }
-  state.rain = on; document.body.classList.toggle("rainmode", on);
+  state.rain = on; document.body.classList.toggle("rainmode", on); showWx();
   $("#rain").setAttribute("aria-pressed", on); $("#rain").textContent = `雨天模式：${on ? "開" : "關"}`;
   $("#cardCool .k").lastChild.textContent = on ? "少淋雨路線" : (state.travel === "bike" ? "最涼 YouBike" : "最涼路線");   // 算完路線後 draw() 會依負荷組成改名
   $("#safeHint").textContent = on ? "雨天模式不使用這個選項" : "路線偏向有人行道的路";
@@ -957,6 +962,7 @@ function draw() {
 function setSlot(s) {
   state.slot = s; $("#tout").textContent = slotLabel(s); $("#lgTime").textContent = slotLabel(s);
   if (utciLayer) utciLayer.setUrl(`utci_${slotLabel(s).replace(":", "")}.png`);
+  showWx();
   compute();
 }
 
@@ -1207,15 +1213,65 @@ function sunPos(date, lat = 25.026, lon = 121.543) {
   return {az: (az / rad + 360) % 360, alt: alt / rad};
 }
 // 依時間設定光線方向、天空與日夜配色：模擬播放＝出發時段＋播放進度；跟隨定位＝現在時間
+// ======== 天氣同步：weather.json（每晚預報流程產生；沒有這個檔就不顯示） ========
+let WX = null;
+async function loadWeather() { try { const r = await fetch("weather.json"); if (r.ok) WX = await r.json(); } catch (e) { WX = null; } showWx(); }
+function wxAt(date) {   // 臺北時間的整點預報
+  if (!WX) return null;
+  const h = new Date(date.getTime() + 8 * 3600000).getUTCHours();
+  return WX.hours.find(x => x.h === h) || null;
+}
+const wxRain = w => !!w && /雨|雷/.test(w.wx);
+const wxIcon = w => !w ? "" : /雷/.test(w.wx) ? "⛈" : /雨/.test(w.wx) ? "🌧" : /陰/.test(w.wx) ? "☁" : /雲/.test(w.wx) ? "⛅" : "☀";
+function wxCloud(w) {   // 0＝晴、1＝全陰：白天用日射比（k），夜間用天氣現象
+  if (!w) return 0;
+  if (w.k != null) return Math.max(0, Math.min(1, (0.8 - w.k) / 0.55));
+  return wxRain(w) ? 0.9 : /陰/.test(w.wx) ? 0.8 : /雲/.test(w.wx) ? 0.4 : 0;
+}
+const wxText = w => `${wxIcon(w)} ${w.wx}・${w.t != null ? w.t.toFixed(0) + "°C" : ""}・降雨機率 ${w.pop != null ? Math.round(w.pop) + "%" : "–"}`;
+function showWx() {
+  const el = $("#wxLine"); if (!el) return;
+  const [h, mi] = slotLabel(state.slot).split(":").map(Number), w = WX && wxAt(tpTime(h, mi));
+  el.hidden = !w; if (!w) return;
+  el.innerHTML = `${slotLabel(state.slot)} 預報：<b>${wxText(w)}</b>${wxRain(w) && !state.rain ? "　<span class=\"warn\">可能下雨，可開雨天模式</span>" : ""}`;
+}
+// 雨滴（只在沉浸式、預報有雨時）：簡單的斜線動畫，強度依降雨機率
+const RAIN = {drops: [], on: false, lvl: 0, last: 0};
+function rainSet(w) {
+  const lvl = wxRain(w) && !matchMedia("(prefers-reduced-motion: reduce)").matches ? Math.max(0.3, (w.pop || 50) / 100) * (/大雨|雷/.test(w.wx) ? 1.6 : 1) : 0;
+  RAIN.lvl = lvl; const cv = $("#rainFx");
+  if (lvl && IMM.on) { cv.hidden = false; if (!RAIN.on) { RAIN.on = true; requestAnimationFrame(rainFrame); } }
+  else { RAIN.on = false; cv.hidden = true; }
+}
+function rainFrame(now) {
+  if (!RAIN.on) return;
+  const cv = $("#rainFx"), W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+  const g = cv.getContext("2d"), n = Math.round(160 * RAIN.lvl * W / 1000), dt = RAIN.last ? Math.min((now - RAIN.last) / 1000, 0.05) : 0; RAIN.last = now;
+  while (RAIN.drops.length < n) RAIN.drops.push({x: Math.random() * W, y: Math.random() * H, v: 700 + Math.random() * 500, l: 10 + Math.random() * 14});
+  RAIN.drops.length = n;
+  g.clearRect(0, 0, W, H); g.strokeStyle = "rgba(200,215,235,.55)"; g.lineWidth = 1.2; g.beginPath();
+  for (const d of RAIN.drops) {
+    d.y += d.v * dt; d.x -= d.v * dt * 0.12;
+    if (d.y > H) { d.y = -d.l; d.x = Math.random() * W * 1.1; }
+    g.moveTo(d.x, d.y); g.lineTo(d.x + d.l * 0.12, d.y - d.l);
+  }
+  g.stroke(); requestAnimationFrame(rainFrame);
+}
+const mix = (a, b, t) => "#" + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, "0")).join("");
 let immSunKey = "";
 function immSun(date) {
-  const {az, alt} = sunPos(date), night = alt < -4, key = `${Math.round(az / 3)}_${Math.round(alt / 2)}`;
+  const {az, alt} = sunPos(date), night = alt < -4, w = wxAt(date), cl = wxCloud(w);
+  const key = `${Math.round(az / 3)}_${Math.round(alt / 2)}_${w ? w.h : ""}`;
   if (key === immSunKey) return; immSunKey = key;
   const C = sceneColors(night), low = Math.max(0, Math.min(1, alt / 25));      // 0＝日出日落，1＝白天
-  ml.setLight({anchor: "map", position: [1.3, night ? 200 : az, night ? 30 : 90 - Math.max(alt, 4)],
-               color: night ? "#9aa6c8" : alt < 12 ? "#ffd2a0" : "#ffffff", intensity: night ? 0.25 : 0.3 + 0.25 * low});
-  if (ml.setSky) ml.setSky(night ? {"sky-color": "#0e1424", "horizon-color": "#2a3150", "sky-horizon-blend": 0.6}
-    : {"sky-color": alt < 8 ? "#6f86c9" : "#7fb6ef", "horizon-color": alt < 8 ? "#f6b38a" : "#e6f1fb", "sky-horizon-blend": 0.7});
+  // 陰天：光線變弱、變白（沒有明顯方向），天空變灰；雨天再暗一點
+  ml.setLight({anchor: "map", position: [1.3, night ? 200 : az, night ? 30 : 90 - Math.max(alt, 4) * (1 - 0.6 * cl)],
+               color: night ? "#9aa6c8" : mix(alt < 12 ? "#ffd2a0" : "#ffffff", "#e8ecf2", cl), intensity: night ? 0.25 : (0.3 + 0.25 * low) * (1 - 0.45 * cl)});
+  if (ml.setSky) ml.setSky(night ? {"sky-color": mix("#0e1424", "#1c2028", cl), "horizon-color": mix("#2a3150", "#343a44", cl), "sky-horizon-blend": 0.6}
+    : {"sky-color": mix(alt < 8 ? "#6f86c9" : "#7fb6ef", wxRain(w) ? "#7d858f" : "#a9b1ba", cl), "horizon-color": mix(alt < 8 ? "#f6b38a" : "#e6f1fb", "#c9ced4", cl), "sky-horizon-blend": 0.7});
+  rainSet(w);
+  const wl = $("#immWx"); wl.hidden = !w; if (w) wl.textContent = `預報 ${String(w.h).padStart(2, "0")}:00　${wxText(w)}`;
   ml.setPaintProperty("s-bg", "background-color", C.bg);
   if (ml.getLayer("photo")) ml.setPaintProperty("photo", "raster-brightness-max", night ? 0.35 : 1);
   for (const [id, k] of [["s-parks", "park"], ["s-roads", "road"], ["s-walk", "walk"], ["s-xing", "xing"]])
@@ -1392,6 +1448,7 @@ async function immEnter() {
   $("#panel").hidden = true; $("#legend").hidden = true; $("#imm").hidden = false;
   $(".maplibregl-ctrl-top-right") && ($(".maplibregl-ctrl-top-right").style.display = "none");
   Object.assign(IMM, {on: true, t: 0, follow: true, last: 0, cb: null}); $("#immRe").hidden = true;
+  immSunKey = ""; immSun(immClock());   // 進入後再套一次天氣（下雨動畫要在沉浸式開啟後才啟動）
   immSetPlay(!matchMedia("(prefers-reduced-motion: reduce)").matches);
   requestAnimationFrame(immFrame);
 }
@@ -1441,7 +1498,7 @@ function immLmkShow(force) {
 async function immExit() {
   immGpsOff();
   immLmk.forEach(x => x.mk.remove()); immLmk = [];
-  IMM.on = false; IMM.play = false;
+  IMM.on = false; IMM.play = false; rainSet(null);
   immMk && immMk.remove(); immSig.forEach(x => x.remove()); immSig = [];
   immStyle(false);
   $("#imm").hidden = true; $("#panel").hidden = false; $("#legend").hidden = false;
@@ -1562,6 +1619,7 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
   }
   $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。`;
   initMap();
+  loadWeather();
   wireSearch($("#qa"), $("#sa"), "A"); wireSearch($("#qb"), $("#sb"), "B");
   $("#t").addEventListener("input", ev => setSlot(+ev.target.value));
   $("#pickA").onclick = () => setPick("A"); $("#pickB").onclick = () => setPick("B");
