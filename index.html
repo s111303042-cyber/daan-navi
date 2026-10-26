@@ -87,6 +87,12 @@ img.utci-layer{image-rendering:pixelated}
 .time{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
 .time output{font-variant-numeric:tabular-nums;font-weight:700;font-size:15px;min-width:46px}
 .time input{flex:1;accent-color:var(--shade)}
+.nowbtn{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:3px 10px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.nowbtn[aria-pressed="true"]{background:var(--shade);border-color:var(--shade);color:#fff}
+.nowbtn[aria-pressed="true"]::before{content:"● ";font-size:9px;vertical-align:1px}
+.sunline{display:flex;gap:14px;align-items:center;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.sunline b{color:var(--ink);font-weight:700}
+.sunline .sic{display:inline-block;width:16px;text-align:center}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
 .seg button{border:0;background:var(--bg);padding:6px 10px;cursor:pointer;font-size:12.5px;color:var(--muted)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
@@ -217,6 +223,11 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
 .walker{width:22px;height:22px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 6px rgb(26 115 232 / .25),0 2px 6px rgb(0 0 0 / .35);position:relative}
 .walker.riding{background:#e8710a;box-shadow:0 0 0 6px rgb(232 113 10 / .28),0 2px 6px rgb(0 0 0 / .35)}
 .walker.riding::after{border-bottom-color:#e8710a}
+.imIc{width:46px;height:46px;border-radius:50%;background:#fff;border:3px solid #1a73e8;display:grid;place-items:center;box-shadow:0 3px 10px rgb(0 0 0 / .35);transition:border-color .2s}
+.imIc svg{width:32px;height:32px;fill:none;stroke:#1a73e8;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.imIc.bike{border-color:#e8710a;background:#fff7d6}
+.imIc.bike svg{stroke:#3a3a3a}
+.imIc.bike .wh{stroke:#3a3a3a}.imIc.bike .fr{stroke:#e8710a;stroke-width:2.4}.imIc.bike .bk{fill:#f6c000;stroke:#3a3a3a}
 .sig3d.stn3d{background:#e8710a;color:#fff}
 .walker::after{content:"";position:absolute;left:50%;top:-13px;transform:translateX(-50%);border:7px solid transparent;border-bottom:10px solid #1a73e8}
 .lm{display:inline-flex;align-items:center;gap:4px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:1px 7px 1px 2px;font-size:11.5px;white-space:nowrap;box-shadow:0 1px 4px rgb(0 0 0 / .25);transform:translate(-9px,-9px)}
@@ -257,7 +268,9 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
       </div>
       <div class="row">
         <label class="time" for="t"><span class="hint">出發</span><output id="tout">14:00</output><input id="t" type="range" min="12" max="40" step="1" value="28"></label>
+        <button class="nowbtn" id="tNow" aria-pressed="true" title="開啟時，出發時間和熱度圖每分鐘自動跟著現在時間（每 30 分鐘一個時段）；拖動時間軸就改成手動">現在</button>
       </div>
+      <div class="sunline" id="sunLine" hidden></div>
       <div class="hint" id="wxLine" hidden></div>
       <div class="row" style="justify-content:space-between">
         <div class="seg" role="group" aria-label="點地圖設定">
@@ -533,6 +546,28 @@ function plan(o, t, s, mode, safe) {
 // 騎車速度：2026 年 7 月大安區 84.7 萬趟租借紀錄反推（已含平均等紅燈）；熱度分鐘不加騎車迎面風
 const BWS = [0, 0.5, 1, 2, 4, 8, 16], RENT_MIN = 1, RETURN_MIN = 1, ST_RADIUS = 600, ST_MAX = 6, FREE_MIN = 30;
 let BK = null;   // 騎車路網
+// 站點接到步行路網（10/26 修正）：每站給幾個候選點，規劃時選「走到那裡＋直線補到站」最省的一個。
+// 以前只用最近的點，會接到沒和人行道相連的步道端點（例：科技大樓站旁的校園步道），步行路線因此繞一圈才到站。
+function stationNodes(lat, lon) {
+  const x = (lon - D.lon0) * D.kx, y = (lat - D.lat0) * D.ky, gx = Math.floor(x / 50), gy = Math.floor(y / 50);
+  const walkable = k => k === 0 || k === 1 || k === 2 || k === 5;   // 人行道（實體／標線／人車共道／騎樓）
+  const near0 = nearestNode(lat, lon), out = [{n: near0.n, d: near0.d}];
+  let edge = null, node = null;
+  for (let i = gx - 2; i <= gx + 2; i++) for (let j = gy - 2; j <= gy + 2; j++) {
+    const L = D.grid.get(i + "," + j); if (!L) continue;
+    for (const n of L) for (let q = adjStart[n]; q < adjStart[n + 1]; q++) {
+      const e = adjEdge[q], v = adjNode[q]; if (!walkable(D.ekind[e])) continue;
+      const dn = Math.hypot(X[n] - x, Y[n] - y); if (!node || dn < node.d) node = {n, d: dn};
+      const dx = X[v] - X[n], dy = Y[v] - Y[n], L2 = dx * dx + dy * dy;
+      const t = L2 ? Math.max(0, Math.min(1, ((x - X[n]) * dx + (y - Y[n]) * dy) / L2)) : 0;
+      const d = Math.hypot(X[n] + t * dx - x, Y[n] + t * dy - y);
+      if (!edge || d < edge.d) { const m = t <= 0.5 ? n : v; edge = {d, n: m, dm: Math.hypot(X[m] - x, Y[m] - y)}; }
+    }
+  }
+  if (node && node.d <= 80) out.push(node);
+  if (edge && edge.d <= 60) out.push({n: edge.n, d: edge.dm});
+  return out.filter((c, i) => out.findIndex(o => o.n === c.n) === i);
+}
 async function loadBike() {
   if (BK) return BK;
   const J = await (await fetch("bike.json")).json();
@@ -551,8 +586,8 @@ async function loadBike() {
   }
   const UTb = dec(J.utci, J);
   const st = J.stations.filter(s => s[5] === 1).map(s => {
-    const w = nearestNode(s[1], s[2]);
-    return {name: s[0], lat: s[1], lon: s[2], docks: s[3], b: s[4], w: w.n, x: (s[2] - D.lon0) * D.kx, y: (s[1] - D.lat0) * D.ky};
+    const ws = stationNodes(s[1], s[2]);
+    return {name: s[0], lat: s[1], lon: s[2], docks: s[3], b: s[4], w: ws[0].n, ws, x: (s[2] - D.lon0) * D.kx, y: (s[1] - D.lat0) * D.ky};
   });
   BK = {J, n, m, bx, by, start: deg, aE, aN, UTb, st, dist: new Float64Array(n), prev: new Int32Array(n), pe: new Int32Array(n), done: new Uint8Array(n)};
   return BK;
@@ -633,16 +668,23 @@ function planBike(A, B, s, mode, safe) {
   if (!R.length || !T.length) return {err: "起點或終點附近 1.2 公里內沒有 YouBike 站"};
   const cands = [];
   for (const w of BWS) {
-    const wa = walkTree(A.node, R.map(r => r.w), s, w, mode, safe);
-    const wb = walkTree(B.node, T.map(t => t.w), s, w, mode, safe);   // 從終點往回找（步行路網雙向）
+    const wa = walkTree(A.node, R.flatMap(r => r.ws.map(c => c.n)), s, w, mode, safe);
+    const wb = walkTree(B.node, T.flatMap(t => t.ws.map(c => c.n)), s, w, mode, safe);   // 從終點往回找（步行路網雙向）
+    const pick = (tree, st) => {   // 這個站最省的接入點（含直線補到站的距離）
+      let g = null;
+      for (const c of st.ws) { const h = tree.got.get(c.n); if (!h) continue;
+        const cost = h.cost + c.d / SPEED / 60 * (1 + w * disc(nu[c.n])); if (!g || cost < g.cost) g = {cost, n: c.n}; }
+      return g && {...st, w: g.n, cost: g.cost};
+    };
+    const RR = R.map(r => pick(wa, r)).filter(Boolean), TT = T.map(t => pick(wb, t)).filter(Boolean);
     let best = null;
-    for (const r of R) {
-      const ga = wa.got.get(r.w); if (!ga) continue;
+    for (const r of RR) {
+      const ga = r;
       const uR = nu[r.w], cR = RENT_MIN * (1 + w * disc(uR));
-      const bt = bikeTree(r.b, T.filter(t => t.name !== r.name).map(t => t.b), s, w, sp);
-      for (const t of T) {
+      const bt = bikeTree(r.b, TT.filter(t => t.name !== r.name).map(t => t.b), s, w, sp);
+      for (const t of TT) {
         if (t.name === r.name) continue;
-        const gb = wb.got.get(t.w), bb = bt.get(t.b); if (!gb || !bb) continue;
+        const gb = t, bb = bt.get(t.b); if (!bb) continue;
         const uT = nu[t.w], cost = ga.cost + cR + bb.cost + RETURN_MIN * (1 + w * disc(uT)) + gb.cost;
         if (!best || cost < best.cost) best = {cost, r, t, bb, uR, uT};
       }
@@ -858,7 +900,7 @@ function drawBike() {
   };
   card(r.cool, "#vCool", "#mCool"); card(r.fast, "#vFast", "#mFast");
   const dl = $("#delta"); dl.hidden = false;
-  const wf = r.walkRef, same = r.cool.w === r.fast.w || (r.cool.rent === r.fast.rent && r.cool.ret === r.fast.ret && r.cool.bk.path.join() === r.fast.bk.path.join());
+  const wf = r.walkRef, same = r.cool.w === r.fast.w || (r.cool.rent.name === r.fast.rent.name && r.cool.ret.name === r.fast.ret.name && r.cool.bk.path.join() === r.fast.bk.path.join());
   const nm = KIND_NAME[state.kind];
   $("#cardCool .k").lastChild.textContent = `${nm} YouBike`;
   let txt = state.kind === "none" ? noLoadTxt() : same ? `這個時段最快的 YouBike 路線就是${nm}的。` :
@@ -1216,6 +1258,11 @@ async function set3D(on) {
 const IMM = {on: false, play: false, spd: 8, t: 0, follow: true, last: 0, cb: null, was3d: false, heat: false,
              gps: false, watch: null, gd: 0, dd: 0, off: 0, lastRe: 0, fix: null, lock: null, weak: false};
 const SPDS = [1, 4, 8, 16, 32];
+// 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
+const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
+const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
+const PAGE_VER = "2026-10-26 第 14 版（YouBike 站點接入修正）";
+let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
 // 沉浸式配色：接近真實街景（柏油、地磚、磁磚外牆、行道樹）；夜間用 night 配色
@@ -1236,6 +1283,38 @@ function sunPos(date, lat = 25.026, lon = 121.543) {
   const alt = Math.asin(Math.sin(lat * rad) * Math.sin(dec) + Math.cos(lat * rad) * Math.cos(dec) * Math.cos(ha));
   const az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(lat * rad) - Math.sin(lat * rad) * Math.cos(ha));
   return {az: (az / rad + 360) % 360, alt: alt / rad};
+}
+// 日出、日落：太陽中心高度 −0.833°（含大氣折射與太陽半徑），用 sunPos 二分搜尋；日期＝UTCI 資料那一天
+function sunTimes(day) {
+  const [y, m, d] = day.split("-").map(Number), t0 = Date.UTC(y, m - 1, d, -8, 0), H = 3600000;   // 臺北當天 00:00
+  const alt = t => sunPos(new Date(t)).alt + 0.833;
+  const find = (a, b) => { const up = alt(b) > alt(a); for (let i = 0; i < 40; i++) { const c = (a + b) / 2; if ((alt(c) > 0) === up) b = c; else a = c; } return new Date((a + b) / 2); };
+  const noon = t0 + 12 * H;
+  return {rise: find(t0, noon), set: find(noon, t0 + 24 * H)};
+}
+const hm = d => { const t = new Date(d.getTime() + 8 * 3600000); return `${String(t.getUTCHours()).padStart(2, "0")}:${String(t.getUTCMinutes()).padStart(2, "0")}`; };
+function showSun() {
+  if (!/^\d{4}-\d\d-\d\d$/.test(D.day || "")) return;
+  const {rise, set} = sunTimes(D.day), el = $("#sunLine");
+  el.hidden = false;
+  el.innerHTML = `<span><span class="sic" aria-hidden="true">🌅</span>日出 <b>${hm(rise)}</b></span><span><span class="sic" aria-hidden="true">🌇</span>日落 <b>${hm(set)}</b></span>` +
+    (D.source ? "" : `<span>（${D.day.slice(5).replace("-", "/")} 資料當天）</span>`) + `<span id="nowNote"></span>`;
+}
+// 出發時間跟著現在時間：每 30 秒檢查一次，換到新的 30 分鐘時段才更新熱度圖與路線；拖動時間軸就停止，按「現在」恢復
+// 歷史日資料（2020-07-24 展示版）用「現在的時刻」對到那一天的同一時段
+let autoNow = true;
+function nowSlot() { const t = new Date(Date.now() + 8 * 3600000), min = t.getUTCHours() * 60 + t.getUTCMinutes(); return {slot: Math.floor(min / 30), min}; }
+function autoTick(force) {
+  if (!autoNow) return;
+  const {slot, min} = nowSlot(), lo = +$("#t").min, hi = +$("#t").max, s = Math.min(Math.max(slot, lo), hi);
+  const note = $("#nowNote");
+  if (note) note.textContent = slot < lo || slot > hi ? `現在 ${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")} 不在模擬時段（${slotLabel(lo)}–${slotLabel(hi)}），先顯示 ${slotLabel(s)}` : "";
+  if (typeof IMM !== "undefined" && IMM.on) return;   // 沉浸式導航中不換時段（會重算路線）
+  if (force || s !== state.slot) { $("#t").value = s; setSlot(s); }
+}
+function setAutoNow(on) {
+  autoNow = on; $("#tNow").setAttribute("aria-pressed", on);
+  if (on) autoTick(true); else if ($("#nowNote")) $("#nowNote").textContent = "";
 }
 // 依時間設定光線方向、天空與日夜配色：模擬播放＝出發時段＋播放進度；跟隨定位＝現在時間
 // ======== 天氣同步：weather.json（每晚預報流程產生；沒有這個檔就不顯示） ========
@@ -1475,6 +1554,9 @@ function immRender(dt) {
     coordinates: R.pts.slice(0, pos.i + 1).map(q => [q.lon, q.lat]).concat([[pos.lon, pos.lat]])}});
   const g = R.segs[Math.min(S.seg, R.segs.length - 1)], riding = !!g && g.bike && !S.waitLeft;
   if (immMk.getElement().classList.contains("riding") !== riding) immMk.getElement().classList.toggle("riding", riding);
+  const icm = g && g.bike ? "bike" : "walk";
+  immIc.setLngLat([pos.lon, pos.lat]);
+  if (icm !== immIcMode) { immIcMode = icm; const el = immIc.getElement(); el.classList.remove("walk", "bike"); el.classList.add(icm); el.innerHTML = icm === "bike" ? IC_BIKE : IC_WALK; el.title = icm === "bike" ? "騎 YouBike" : "步行"; }
   $("#immSv").href = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${pos.lat.toFixed(6)},${pos.lon.toFixed(6)}&heading=${Math.round((b + 360) % 360)}`;
   if (IMM.follow) ml.jumpTo({center: [pos.lon, pos.lat], bearing: IMM.cb, pitch: 60, zoom: 19.2, padding: {top: Math.round(ml.getContainer().clientHeight * 0.42), bottom: 0, left: 0, right: 0}});
   // 上方提示
@@ -1530,6 +1612,8 @@ function immLoad(m) {   // 把一條路線放進沉浸式畫面（第一次進�
     geometry: {type: "LineString", coordinates: [[g.a.lon, g.a.lat], [g.b.lon, g.b.lat]]}}))});
   if (!immMk) { const el = document.createElement("div"); el.className = "walker"; immMk = new maplibregl.Marker({element: el, rotationAlignment: "map", pitchAlignment: "map"}); }
   immMk.setLngLat([immM.pts[0].lon, immM.pts[0].lat]).addTo(ml);
+  if (!immIc) { const el = document.createElement("div"); el.className = "imIc walk"; el.innerHTML = IC_WALK; immIc = new maplibregl.Marker({element: el, anchor: "bottom", offset: [0, -18]}); }
+  immIcMode = ""; immIc.setLngLat([immM.pts[0].lon, immM.pts[0].lat]).addTo(ml);
   immSig.forEach(x => x.remove()); immSig = [];
   immLmkBuild(m);
   for (const x of immM.man) if (x.wait || x.stop) {
@@ -1571,7 +1655,7 @@ async function immExit() {
   immGpsOff();
   immLmk.forEach(x => x.mk.remove()); immLmk = [];
   IMM.on = false; IMM.play = false; rainSet(null);
-  immMk && immMk.remove(); immSig.forEach(x => x.remove()); immSig = [];
+  immMk && immMk.remove(); immIc && immIc.remove(); immSig.forEach(x => x.remove()); immSig = [];
   immStyle(false);
   $("#imm").hidden = true; $("#panel").hidden = false; $("#legend").hidden = false;
   $(".maplibregl-ctrl-top-right") && ($(".maplibregl-ctrl-top-right").style.display = "");
@@ -1689,11 +1773,13 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
       ["38–46", "非常強熱壓力"], ["&gt;46", "極端熱壓力"]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("") +
       (D.cold_low != null ? `<span>&lt;${D.cold_low}</span><span>本研究的偏冷負荷（非標準冷壓力）</span>` : "");
   }
-  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。`;
+  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
   initMap();
   loadWeather();
   wireSearch($("#qa"), $("#sa"), "A"); wireSearch($("#qb"), $("#sb"), "B");
-  $("#t").addEventListener("input", ev => setSlot(+ev.target.value));
+  $("#t").addEventListener("input", ev => { if (autoNow) { setAutoNow(false); toast("已改成手動選時間，按「現在」可恢復自動", 3000); } setSlot(+ev.target.value); });
+  $("#tNow").onclick = () => setAutoNow(!autoNow);
+  showSun(); setInterval(() => autoTick(false), 30000);
   $("#pickA").onclick = () => setPick("A"); $("#pickB").onclick = () => setPick("B");
   $("#wMean").onclick = () => { state.mode = "mean"; $("#wMean").setAttribute("aria-pressed", true); $("#wWorst").setAttribute("aria-pressed", false); compute(); };
   $("#b3d").onclick = () => set3D(!ml3d);
@@ -1725,8 +1811,8 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
       () => toast("無法取得定位：在 claude.ai 頁面裡定位會被擋。請改點地圖或輸入地名選起點。", 5000), {enableHighAccuracy: true, timeout: 8000});
   };
   if (window.matchMedia("(max-width: 899px)").matches) { $("#sheet").classList.add("collapsed"); $("#toggleSteps").textContent = "展開"; }
-  setSlot(28);
-  // 範例：國北正門 → 大安森林公園，14:00
+  setSlot(28); autoTick(true);   // 預設跟著現在時間（不在模擬時段就用最近的時段）
+  // 範例：國北正門 → 大安森林公園
   const pa = D.places.find(p => p[0].startsWith("國北教大正門")), pb = D.places.find(p => p[0].startsWith("大安森林公園"));
   if (pa && pb) { state.A = null; setPoint("A", pa[1], pa[2], pa[0]); setPoint("B", pb[1], pb[2], pb[0]);
     const fit = () => { map.invalidateSize({animate: false}); const desk = innerWidth >= 900;
