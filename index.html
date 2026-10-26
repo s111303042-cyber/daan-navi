@@ -1,0 +1,1438 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>大安沉浸式導航</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&display=swap">
+<style>
+/* Layout: one-screen app — map fills the screen; phone: search card on top + result sheet at bottom; desktop: 400px side panel at left */
+:root{
+  --bg:#eef1f0; --panel:#fbfcfb; --ink:#1d2523; --muted:#5d6b67; --line:#d6ddda;
+  --shade:#0d6b63;        /* 最涼路線：樹蔭綠 */
+  --shade-soft:#d9eeea;
+  --fast:#2a3140;         /* 最快路線 */
+  --sun:#c2410c;          /* 熱、警示 */
+  --sun-soft:#fde8d9;
+  --rain:#1d4ed8;         /* 雨天路線 */
+  --rain-soft:#dbe6fb;
+  --mapbg:#dfe4e2;
+  --font:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --r:12px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121615; --panel:#1b211f; --ink:#e7eeeb; --muted:#9aa9a4; --line:#2e3835;
+  --shade:#3fc1b0; --shade-soft:#173a35; --fast:#c9d2e3; --sun:#fb8a4a; --sun-soft:#3d2416; --rain:#7aa7ff; --rain-soft:#1b2a45; --mapbg:#232a28; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121615; --panel:#1b211f; --ink:#e7eeeb; --muted:#9aa9a4; --line:#2e3835;
+  --shade:#3fc1b0; --shade-soft:#173a35; --fast:#c9d2e3; --sun:#fb8a4a; --sun-soft:#3d2416; --rain:#7aa7ff; --rain-soft:#1b2a45; --mapbg:#232a28; color-scheme:dark}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;overflow:hidden}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--shade);outline-offset:2px}
+
+/* ---- Leaflet essentials (inlined; the CDN stylesheet is not allowed here) ---- */
+.leaflet-image-layer,.leaflet-layer,.leaflet-marker-icon,.leaflet-marker-shadow,.leaflet-pane,.leaflet-pane>canvas,.leaflet-pane>svg,.leaflet-tile,.leaflet-tile-container,.leaflet-zoom-box{position:absolute;left:0;top:0}
+.leaflet-container{overflow:hidden;-webkit-tap-highlight-color:transparent;background:var(--mapbg);font-family:var(--font);outline-offset:1px}
+.leaflet-marker-icon{display:block;user-select:none}
+.leaflet-container .leaflet-overlay-pane svg{max-width:none!important;max-height:none!important}
+.leaflet-container img.leaflet-image-layer{max-width:none!important;max-height:none!important;width:auto;padding:0}
+.leaflet-container.leaflet-touch-zoom{touch-action:pan-x pan-y}
+.leaflet-container.leaflet-touch-drag{touch-action:pinch-zoom}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom{touch-action:none}
+.leaflet-pane{z-index:400}.leaflet-tile-pane{z-index:200}.leaflet-overlay-pane{z-index:400}.leaflet-shadow-pane{z-index:500}.leaflet-marker-pane{z-index:600}.leaflet-tooltip-pane{z-index:650}.leaflet-popup-pane{z-index:700}
+.leaflet-map-pane canvas{z-index:100}.leaflet-map-pane svg{z-index:200}
+.leaflet-control{position:relative;z-index:800;pointer-events:auto;float:left;clear:both}
+.leaflet-bottom,.leaflet-top{position:absolute;z-index:1000;pointer-events:none}
+.leaflet-top{top:0}.leaflet-right{right:0}.leaflet-bottom{bottom:0}.leaflet-left{left:0}
+.leaflet-right .leaflet-control{float:right}
+.leaflet-zoom-animated{transform-origin:0 0}
+.leaflet-zoom-anim .leaflet-zoom-animated{transition:transform .25s cubic-bezier(0,0,.25,1)}
+.leaflet-zoom-anim .leaflet-zoom-hide{visibility:hidden}
+.leaflet-interactive{cursor:pointer}.leaflet-grab{cursor:grab}.leaflet-dragging .leaflet-grab{cursor:grabbing}
+.leaflet-image-layer,.leaflet-marker-icon,.leaflet-pane>svg path{pointer-events:none}
+.leaflet-marker-icon.leaflet-interactive,.leaflet-pane>svg path.leaflet-interactive{pointer-events:auto}
+.leaflet-bar{border-radius:10px;overflow:hidden;border:1px solid var(--line);box-shadow:0 2px 8px rgb(0 0 0 / .12)}
+.leaflet-bar a{display:block;width:36px;height:36px;line-height:36px;text-align:center;text-decoration:none;background:var(--panel);color:var(--ink);font-size:20px;border-bottom:1px solid var(--line)}
+.leaflet-bar a:last-child{border-bottom:none}
+.leaflet-bar a.leaflet-disabled{color:var(--muted);opacity:.5}
+.leaflet-control-scale-line{border:2px solid var(--muted);border-top:none;padding:0 5px;color:var(--ink);background:color-mix(in srgb,var(--panel) 80%,transparent);font-size:11px;line-height:1.4}
+.leaflet-tooltip{position:absolute;padding:3px 7px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:6px;white-space:nowrap;pointer-events:none;font-size:12px;box-shadow:0 1px 4px rgb(0 0 0 / .2)}
+img.utci-layer{image-rendering:pixelated}
+
+/* ---- App layout ---- */
+#app{position:fixed;inset:0;display:grid;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+#map{grid-area:1/1;height:100%;width:100%}
+#panel{grid-area:1/1;min-height:0;max-height:100%;overflow:hidden;z-index:1100;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;
+  padding-top:max(10px,env(safe-area-inset-top,0px));padding-bottom:max(10px,env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.card{pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 6px 24px rgb(10 30 25 / .14)}
+#top{display:flex;flex-direction:column;gap:8px;padding:10px 12px;max-width:440px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.brand h1{font-family:var(--display);font-size:18px;margin:0;letter-spacing:.04em}
+.brand small{color:var(--muted);font-size:11.5px}
+.field{display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;position:relative}
+.dot{width:12px;height:12px;border-radius:50%;justify-self:center}
+.dot.a{background:var(--panel);border:3px solid var(--fast)}
+.dot.b{background:var(--sun);border:3px solid var(--panel);outline:1.5px solid var(--sun)}
+.field input{width:100%;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:8px 10px}
+.iconbtn{border:1px solid var(--line);background:var(--bg);border-radius:9px;height:36px;min-width:36px;padding:0 8px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+.iconbtn[aria-pressed="true"]{background:var(--shade-soft);color:var(--shade);border-color:var(--shade)}
+.suggest{position:absolute;left:30px;right:0;top:40px;z-index:5;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgb(0 0 0 / .18);max-height:260px;overflow:auto;padding:4px}
+.suggest button{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:8px;cursor:pointer}
+.suggest button:hover,.suggest button.on{background:var(--shade-soft)}
+.suggest em{font-style:normal;color:var(--muted);font-size:12px;white-space:nowrap}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.time{display:flex;align-items:center;gap:10px;flex:1;min-width:200px}
+.time output{font-variant-numeric:tabular-nums;font-weight:700;font-size:15px;min-width:46px}
+.time input{flex:1;accent-color:var(--shade)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--bg);padding:6px 10px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.hint{font-size:12px;color:var(--muted)}
+.hint b{color:var(--ink);font-weight:500}
+
+#sheet{display:flex;flex-direction:column;max-width:440px;max-height:46vh;overflow:hidden}
+#cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 10px 6px}
+.rc{border:1.5px solid var(--line);border-radius:10px;padding:8px 10px;text-align:left;background:var(--panel);cursor:pointer;display:flex;flex-direction:column;gap:3px;min-width:0}
+.rc[aria-pressed="true"].cool{border-color:var(--shade);background:var(--shade-soft)}
+.rc[aria-pressed="true"].fast{border-color:var(--fast)}
+.rc .k{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.rc .k i{display:inline-block;width:18px;height:0;border-top:3px solid var(--shade)}
+.rc.fast .k i{border-top:3px dashed var(--fast)}
+.rc .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.rc .v small{font-size:12px;font-weight:500;color:var(--muted)}
+.rc .m{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.rc .m b{color:var(--ink);font-weight:500}
+#delta{margin:0 10px 6px;padding:6px 10px;border-radius:8px;background:var(--shade-soft);color:var(--ink);font-size:12.5px}
+#steps{overflow:auto;padding:4px 10px 10px;margin:0;list-style:none;display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--line)}
+#steps li{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:start;padding:7px 2px;border-bottom:1px dashed var(--line)}
+#steps li:last-child{border-bottom:0}
+#steps .ic{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;background:var(--bg);border:1px solid var(--line)}
+#steps .wait .ic{background:var(--sun-soft);border-color:var(--sun);color:var(--sun)}
+#steps .t{font-size:13.5px;line-height:1.4;min-width:0}
+#steps .s{font-size:12px;color:var(--muted)}
+#steps .u{font-size:12px;font-variant-numeric:tabular-nums;padding:1px 7px;border-radius:999px;white-space:nowrap;color:#1d2523}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;padding:8px 12px 0}
+.sheet-head button{border:0;background:none;color:var(--shade);cursor:pointer;font-size:12.5px;padding:4px}
+#legend{position:absolute;z-index:1000;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(max(10px,env(safe-area-inset-bottom,0px)) + 0px);pointer-events:auto;padding:8px 10px;font-size:11px;display:flex;flex-direction:column;gap:4px;width:150px}
+#legend .bar{height:8px;border-radius:4px}
+#legend .ticks{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:var(--muted)}
+#legend .cats{display:grid;grid-template-columns:auto 1fr;gap:1px 6px;color:var(--muted)}
+#toast{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(10px,env(safe-area-inset-top,0px)) + 6px);z-index:1300;background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:999px;font-size:13px;max-width:min(92vw,520px);text-align:center}
+.pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 2px 6px rgb(0 0 0 / .35)}
+.pin span{transform:rotate(45deg);color:#fff;font-weight:700;font-size:12px}
+.pin.a{background:#2a3140}.pin.b{background:#c2410c}
+.sig{width:12px;height:12px;border-radius:3px;background:#fff;border:2px solid #c2410c;box-shadow:0 1px 3px rgb(0 0 0 / .35)}
+#about{font-size:11.5px;color:var(--muted);padding:0 12px 10px;line-height:1.5}
+/* ---- YouBike ---- */
+.stn{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;background:#d97706;border:2px solid #fff;box-shadow:0 1px 4px rgb(0 0 0 / .35)}
+.stn.ret{background:#2563eb}
+.stdot{width:7px;height:7px;border-radius:2px;background:#d97706;border:1px solid #fff;opacity:.85}
+#steps .bike .ic{background:#fff3e0;border-color:#d97706;color:#b45309}
+#steps .stop .ic{background:#d97706;border-color:#d97706;color:#fff}
+#bikeRow[hidden]{display:none!important}
+.warn{color:var(--sun);font-weight:500}
+/* ---- 雨天模式 ---- */
+#rain[aria-pressed="true"]{background:var(--rain-soft);color:var(--rain);border-color:var(--rain)}
+.rainmode .rc[aria-pressed="true"].cool{border-color:var(--rain);background:var(--rain-soft)}
+.rainmode .rc.cool .k i{border-top-color:var(--rain)}
+.rainmode #delta{background:var(--rain-soft)}
+@media (min-width:900px){
+  #panel{width:440px;justify-content:flex-start;gap:10px}
+  #sheet{max-height:none;flex:1;min-height:0}
+  #legend{bottom:max(16px,env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:899px){
+  #legend{bottom:auto;top:calc(max(10px,env(safe-area-inset-top,0px)) + 210px);width:132px}
+  #legend .cats{display:none}
+  #sheet.collapsed #steps,#sheet.collapsed #about{display:none}
+}
+@media (prefers-reduced-motion: reduce){.leaflet-zoom-anim .leaflet-zoom-animated{transition:none}}
+/* ---- 3D 建物（MapLibre；必要樣式內嵌，因為外部樣式表只允許 Google Fonts） ---- */
+#map3d{grid-area:1/1;height:100%;width:100%;background:var(--mapbg)}
+#map3d[hidden]{display:none!important}
+.maplibregl-map{font:inherit;overflow:hidden;position:relative;-webkit-tap-highlight-color:transparent}
+.maplibregl-canvas{position:absolute;left:0;top:0}
+.maplibregl-canvas-container.maplibregl-interactive{cursor:grab}
+.maplibregl-canvas-container.maplibregl-interactive:active{cursor:grabbing}
+.maplibregl-canvas-container.maplibregl-touch-drag-pan,.maplibregl-canvas-container.maplibregl-touch-zoom-rotate{touch-action:pan-x pan-y}
+.maplibregl-canvas-container.maplibregl-touch-drag-pan.maplibregl-touch-zoom-rotate{touch-action:none}
+.maplibregl-marker{position:absolute;left:0;top:0;will-change:transform}
+.maplibregl-ctrl-top-right{position:absolute;top:0;right:0;z-index:2;pointer-events:none}
+.maplibregl-ctrl-top-right .maplibregl-ctrl{float:right;margin:10px 10px 0 0;pointer-events:auto;clear:both}
+.maplibregl-ctrl-group{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgb(0 0 0 / .12)}
+.maplibregl-ctrl-group button{display:block;width:36px;height:36px;border:0;border-bottom:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;font-size:18px;line-height:36px;padding:0}
+.maplibregl-ctrl-group button:last-child{border-bottom:0}
+#b3dHint{min-height:1em}
+/* ---- 沉浸式導航（3D 跟拍） ---- */
+#imm{position:absolute;inset:0;z-index:1200;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;
+  padding:calc(max(12px,env(safe-area-inset-top,0px))) max(16px,env(safe-area-inset-right,0px)) calc(max(12px,env(safe-area-inset-bottom,0px))) max(16px,env(safe-area-inset-left,0px))}
+#imm[hidden]{display:none}
+#panel[hidden],#legend[hidden]{display:none!important}
+body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-inset-bottom,0px)) + 190px)}
+#imm .ban{pointer-events:auto;align-self:flex-start;max-width:min(440px,100%);background:var(--shade);color:#fff;border-radius:16px;padding:12px 16px;box-shadow:0 6px 20px rgb(0 0 0 / .25);display:grid;grid-template-columns:auto 1fr;gap:2px 14px;align-items:center}
+#imm .ban.wait{background:var(--sun)}
+#imm .ban .ar{grid-row:1/3;font-size:34px;line-height:1;font-weight:700;min-width:40px;text-align:center}
+#imm .ban .d{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+#imm .ban .s{font-size:14px;opacity:.95}
+#imm .then{pointer-events:none;width:fit-content;margin-top:6px;background:var(--panel);color:var(--ink);border-radius:10px;padding:4px 10px;font-size:12.5px;box-shadow:0 2px 8px rgb(0 0 0 / .15)}
+#imm .then[hidden]{display:none}
+#imm .bot{pointer-events:auto;background:var(--panel);color:var(--ink);border-radius:16px;padding:10px 12px;box-shadow:0 6px 20px rgb(0 0 0 / .25);display:flex;flex-direction:column;gap:8px;max-width:640px;width:100%;align-self:center}
+#imm .stats{display:flex;justify-content:space-around;align-items:flex-end;text-align:center;gap:8px}
+#imm .stats b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+#imm .stats small{color:var(--muted);font-size:11.5px}
+#imm .stats .u{font-size:13px;font-variant-numeric:tabular-nums;padding:2px 8px;border-radius:999px;color:#1d2523;display:inline-block}
+#imm .ctl{display:flex;gap:6px;align-items:center}
+#imm .ctl input[type=range]{flex:1;min-width:60px;accent-color:var(--shade)}
+#imm .ctl .iconbtn{height:34px}
+#imm .recenter{pointer-events:auto;align-self:center;margin-bottom:8px}
+#imm .recenter[hidden]{display:none}
+#imm .note{font-size:11px;color:var(--muted);text-align:center}
+#immGo{color:var(--shade);font-weight:700}
+#immGo[hidden]{display:none}
+.gpsraw{width:12px;height:12px;border-radius:50%;background:#8a90a8;border:2px solid #fff;opacity:.85}
+.walker{width:22px;height:22px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 6px rgb(26 115 232 / .25),0 2px 6px rgb(0 0 0 / .35);position:relative}
+.walker::after{content:"";position:absolute;left:50%;top:-13px;transform:translateX(-50%);border:7px solid transparent;border-bottom:10px solid #1a73e8}
+.sig3d{background:#2a3140;color:#fff;border:2px solid #fff;border-radius:7px;font-size:11px;padding:1px 5px;box-shadow:0 2px 6px rgb(0 0 0 / .3);white-space:nowrap}
+</style>
+
+<div id="app">
+  <div id="map" aria-label="UTCI 地圖"></div>
+  <div id="map3d" aria-label="3D 建物地圖" hidden></div>
+  <div id="panel">
+    <section id="top" class="card" aria-label="路線設定">
+      <div class="brand"><h1>大安避熱導航</h1><small id="area">載入中…</small></div>
+      <div class="field">
+        <span class="dot a" aria-hidden="true"></span>
+        <input id="qa" placeholder="起點：地名、路口、門牌，或點地圖" autocomplete="off" aria-label="起點">
+        <button class="iconbtn" id="gps" title="用目前位置當起點">定位</button>
+        <div class="suggest" id="sa" hidden></div>
+      </div>
+      <div class="field">
+        <span class="dot b" aria-hidden="true"></span>
+        <input id="qb" placeholder="終點：地名、路口、門牌，或點地圖" autocomplete="off" aria-label="終點">
+        <button class="iconbtn" id="swap" title="起終點交換">⇅</button>
+        <div class="suggest" id="sb" hidden></div>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <div class="seg" role="group" aria-label="交通方式">
+          <button id="tmWalk" aria-pressed="true">步行</button><button id="tmBike" aria-pressed="false">YouBike</button>
+        </div>
+        <div class="seg" role="group" aria-label="車種" id="bikeRow" hidden>
+          <button id="btNormal" aria-pressed="true" title="前 30 分鐘免費：騎乘時間（以騎得慢的人估）不超過 30 分鐘">一般車・30分免費</button><button id="btE" aria-pressed="false" title="電輔車沒有免費時間：總時間不超過最快路線 1.3 倍">電輔車</button>
+        </div>
+      </div>
+      <div class="row">
+        <label class="time" for="t"><span class="hint">出發</span><output id="tout">14:00</output><input id="t" type="range" min="12" max="40" step="1" value="28"></label>
+      </div>
+      <div class="row" style="justify-content:space-between">
+        <div class="seg" role="group" aria-label="點地圖設定">
+          <button id="pickA" aria-pressed="false">點選起點</button><button id="pickB" aria-pressed="true">點選終點</button>
+        </div>
+        <div class="seg" role="group" aria-label="紅燈等待">
+          <button id="wMean" aria-pressed="true" title="隨機抵達路口的平均等待">紅燈平均</button><button id="wWorst" aria-pressed="false" title="每個燈都剛好錯過">最壞</button>
+        </div>
+      </div>
+      <div class="row">
+        <button class="iconbtn" id="rain" aria-pressed="false" title="下雨時：在總時間不超過最快路線 1.3 倍內，找估算淋雨時間最少的步行路線（騎樓、有頂通道優先；等紅燈算淋雨）">雨天模式：關</button>
+        <span class="hint" id="rainHint">找騎樓多、少淋雨的步行路線</span>
+      </div>
+      <div class="row">
+        <button class="iconbtn" id="safe" aria-pressed="false" title="沒有人行道的路段（人車共道）成本加重 1.5 倍">避開人車共道：關</button>
+        <span class="hint" id="safeHint">路線偏向有人行道的路</span>
+      </div>
+      <div class="row">
+        <button class="iconbtn" id="b3d" aria-pressed="false" title="用國土測繪中心三維建物模型，以立體視角顯示建物高度">3D 建物：關</button>
+        <span class="hint" id="b3dHint">立體顯示建物高度（右鍵或雙指拖曳可旋轉）</span>
+      </div>
+    </section>
+
+    <section id="sheet" class="card" aria-label="路線結果">
+      <div id="cards">
+        <button class="rc cool" id="cardCool" aria-pressed="true"><span class="k"><i></i>最涼路線</span><span class="v" id="vCool">–</span><span class="m" id="mCool"></span></button>
+        <button class="rc fast" id="cardFast" aria-pressed="false"><span class="k"><i></i>最快路線</span><span class="v" id="vFast">–</span><span class="m" id="mFast"></span></button>
+      </div>
+      <div id="delta" hidden></div>
+      <div class="sheet-head"><span class="hint" id="stepsTitle">路線說明</span><span><button id="immGo" hidden>▶ 沉浸式導航</button><button id="toggleSteps">收合</button></span></div>
+      <ol id="steps"></ol>
+      <p id="about"></p>
+    </section>
+  </div>
+  <div id="legend" class="card" aria-label="UTCI 圖例">
+    <div><b>UTCI 體感溫度</b> <span id="lgTime" class="hint"></span></div>
+    <div class="bar" id="lgBar"></div>
+    <div class="ticks" id="lgTicks"><span>28</span><span>32</span><span>38</span><span>46</span><span>50°C</span></div>
+    <div class="cats" id="lgCats"><span>32–38</span><span>強熱壓力</span><span>38–46</span><span>非常強熱壓力</span><span>&gt;46</span><span>極端熱壓力</span></div>
+  </div>
+  <div id="toast" hidden></div>
+  <div id="imm" hidden aria-label="沉浸式導航">
+    <div>
+      <div class="ban" id="immBan" role="status" aria-live="polite"><span class="ar" id="immAr">↑</span><span class="d" id="immD">–</span><span class="s" id="immS"></span></div>
+      <div class="then" id="immThen" hidden></div>
+    </div>
+    <div style="display:flex;flex-direction:column">
+      <button class="iconbtn recenter" id="immRe" hidden>回到導航視角</button>
+      <div class="bot">
+        <div class="stats">
+          <div><b id="immEta">–</b><small>抵達</small></div>
+          <div><b id="immMin">–</b><small>分鐘</small></div>
+          <div><b id="immM">–</b><small>公尺</small></div>
+          <div><span class="u" id="immU">–</span><small style="display:block">此段 UTCI</small></div>
+        </div>
+        <div class="ctl">
+          <button class="iconbtn" id="immGps" aria-pressed="false" title="用手機定位，跟著你的實際位置導航">跟隨定位</button>
+          <button class="iconbtn" id="immPlay" aria-label="暫停">❚❚</button>
+          <button class="iconbtn" id="immSpd" title="播放速度">8×</button>
+          <input type="range" id="immBar" min="0" max="1000" value="0" aria-label="路線進度">
+          <a class="iconbtn" id="immSv" href="https://www.google.com/maps" target="_blank" rel="noopener" title="在 Google 地圖開啟這個位置的街景（新分頁）" style="display:inline-flex;align-items:center;text-decoration:none">街景</a>
+          <button class="iconbtn" id="immHeat" aria-pressed="false" title="地面顯示 UTCI 熱度圖">熱度圖</button>
+          <button class="iconbtn" id="immX">結束</button>
+        </div>
+        <div class="note"><span id="immMode">模擬播放（依步行 1.2 m/s 與紅燈等待）</span>・建物：國土測繪中心・車道與公園：© OpenStreetMap contributors・樹：臺北市行道樹與公園樹</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+"use strict";
+// ======== 參數（與 route v3 相同） ========
+const SPEED = 1.2, DETOUR = 1.30, WS = [0, 0.5, 1, 2, 4, 8, 16, 32];
+const XING_WAIT = {mean: 5, worst: 10};
+const $ = s => document.querySelector(s);
+// 熱度：上限 = 臺北極端高溫日 2020-07-24 戶外 UTCI 的 P99（graph.json 的 heat_cap；舊資料沒有就用 46）
+const heat = u => Math.min(Math.max((u - (D.heat_low ?? 32)) / ((D.heat_cap ?? 46) - (D.heat_low ?? 32)), 0), 1);
+// 偏冷（2026-10-25）：UTCI 低於 D.cold_low（20°C，香港冬季中性 UTCI，Lau, Yao & Ng 2026）的不足量，
+// 用和熱度相同的跨距（heat_cap − heat_low ≈ 18°C）正規化到 0–1；graph.json 沒有 cold_low 時不算偏冷
+const cold = u => D.cold_low == null ? 0 : Math.min(Math.max((D.cold_low - u) / ((D.heat_cap ?? 46) - (D.heat_low ?? 32)), 0), 1);
+const disc = u => heat(u) + cold(u);       // 路線成本用的「不舒適度」：同一個 UTCI 只會有其中一項 > 0
+// 累積負荷（°C·min）：H = Σ max(UTCI − 32, 0)·t、C = Σ max(20 − UTCI, 0)·t
+const hOver = u => Math.max(u - (D.heat_low ?? 32), 0), cUnder = u => D.cold_low == null ? 0 : Math.max(D.cold_low - u, 0);
+const ZERO = 0.5;                          // 負荷小於 0.5 °C·min（顯示為 0）視為沒有
+const slotLabel = s => `${String(Math.floor(s / 2)).padStart(2, "0")}:${s % 2 ? "30" : "00"}`;
+
+let D, NN, NE, X, Y, adjStart, adjEdge, adjNode, UT, SUN, SH, CL, xCl, xTyp, xBase, nodeU = {};
+const SAFE = 1.5;   // 「避開人車共道」：人車共道路段成本加權
+const state = {A: null, B: null, slot: 28, mode: "mean", safe: false, pick: "B", sel: "cool", res: null,
+               travel: "walk", bikeType: "一般車", rain: false};
+
+function toast(msg, ms = 3200) {
+  const t = $("#toast"); t.textContent = msg; t.hidden = false;
+  clearTimeout(toast._h); toast._h = setTimeout(() => t.hidden = true, ms);
+}
+function b64(s) { const bin = atob(s), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return a; }
+
+// ======== 載入資料、建立路網 ========
+async function load() {
+  D = await (await fetch("graph.json")).json();
+  NN = D.lat.length; NE = D.eu.length;
+  const lat0 = D.lat[0], lon0 = D.lon[0], kx = Math.cos(lat0 * Math.PI / 180) * 111320, ky = 110574;
+  D.kx = kx; D.ky = ky; D.lat0 = lat0; D.lon0 = lon0;
+  X = new Float64Array(NN); Y = new Float64Array(NN);
+  for (let i = 0; i < NN; i++) { X[i] = (D.lon[i] - lon0) * kx; Y[i] = (D.lat[i] - lat0) * ky; }
+  const deg = new Int32Array(NN + 1);
+  for (let e = 0; e < NE; e++) { deg[D.eu[e] + 1]++; deg[D.ev[e] + 1]++; }
+  for (let i = 0; i < NN; i++) deg[i + 1] += deg[i];
+  adjStart = deg; adjEdge = new Int32Array(2 * NE); adjNode = new Int32Array(2 * NE);
+  const fill = deg.slice();
+  for (let e = 0; e < NE; e++) {
+    const a = D.eu[e], b = D.ev[e];
+    adjEdge[fill[a]] = e; adjNode[fill[a]++] = b;
+    adjEdge[fill[b]] = e; adjNode[fill[b]++] = a;
+  }
+  UT = dec(D.utci, D); SUN = b64(D.sun); SH = D.shelter ? b64(D.shelter) : null;   // 雨天：每段路遮蔽機率（%）
+  CL = D.clusters.map(c => ({...c, x: (c.lon - lon0) * kx, y: (c.lat - lat0) * ky}));
+  // 穿越邊：號誌路口編號（-1 無號誌，-2 不是穿越邊）、0 沿主路 / 1 穿越主路、無號誌等待秒數
+  xCl = new Int32Array(NE).fill(-2); xTyp = new Uint8Array(NE); xBase = new Float32Array(NE);
+  for (const [e, k, t, b] of D.xe) { xCl[e] = k; xTyp[e] = t; xBase[e] = b; }
+  // 最近點搜尋用的格網（50 m）
+  D.grid = new Map();
+  for (let i = 0; i < NN; i++) { const k = Math.floor(X[i] / 50) + "," + Math.floor(Y[i] / 50); (D.grid.get(k) || D.grid.set(k, []).get(k)).push(i); }
+}
+// 每段路存 D.ns 個時段（從 D.s0 開始）
+// UTCI 編碼：新版 uenc="u16"（(UTCI − u_off) ÷ u_step，不截斷低溫）；舊版 uint8 = (UTCI − 20) × 4
+function dec(s, J) {
+  const a = b64(s);
+  if (J.uenc !== "u16") return {a, off: 20, step: 0.25};
+  return {a: new Uint16Array(a.buffer, a.byteOffset, a.length >> 1), off: J.u_off, step: J.u_step};
+}
+const eU = (e, s) => UT.off + UT.a[e * (D.ns || 48) + s - (D.s0 || 0)] * UT.step;
+function nodeUtci(s) {
+  if (nodeU[s]) return nodeU[s];
+  const a = new Float32Array(NN);
+  for (let i = 0; i < NN; i++) { let t = 0, c = 0; for (let j = adjStart[i]; j < adjStart[i + 1]; j++) { t += eU(adjEdge[j], s); c++; } a[i] = c ? t / c : 32; }
+  return nodeU[s] = a;
+}
+function nearestNode(lat, lon) {
+  const x = (lon - D.lon0) * D.kx, y = (lat - D.lat0) * D.ky;
+  let best = -1, bd = Infinity;
+  for (let r = 0; r < 12 && best < 0 || r < 2; r++) {
+    const gx = Math.floor(x / 50), gy = Math.floor(y / 50);
+    for (let i = gx - r; i <= gx + r; i++) for (let j = gy - r; j <= gy + r; j++) {
+      const L = D.grid.get(i + "," + j); if (!L) continue;
+      for (const n of L) { const d = (X[n] - x) ** 2 + (Y[n] - y) ** 2; if (d < bd) { bd = d; best = n; } }
+    }
+    if (r > 40) break;
+  }
+  return {n: best, d: Math.sqrt(bd)};
+}
+
+// ======== 號誌等待（v4：發生在「穿越邊」上） ========
+const nearCluster = (n, k) => Math.hypot(X[n] - CL[k].x, Y[n] - CL[k].y) <= CL[k].r;
+function crossWait(e, s, mode) {
+  const k = xCl[e];
+  if (k < 0) return {sec: xBase[e] * (mode === "worst" ? 2 : 1), key: -1, k: -1};
+  const w = CL[k].w[s], across = xTyp[e] === 1;
+  return {sec: across ? (mode === "worst" ? w[3] : w[2]) : (mode === "worst" ? w[1] : w[0]), key: k * 2 + xTyp[e], k, across};
+}
+
+// ======== Dijkstra（狀態 = 點 × 剛等過的號誌路口與方向） ========
+class Heap { constructor() { this.k = []; this.v = []; }
+  push(k, v) { const K = this.k, V = this.v; let i = K.length; K.push(k); V.push(v); while (i > 0) { const p = (i - 1) >> 1; if (K[p] <= k) break; K[i] = K[p]; V[i] = V[p]; i = p; } K[i] = k; V[i] = v; }
+  pop() { const K = this.k, V = this.v, top = V[0], tk = K[0], lk = K.pop(), lv = V.pop(); const n = K.length;
+    if (n) { let i = 0; for (;;) { let c = 2 * i + 1; if (c >= n) break; if (c + 1 < n && K[c + 1] < K[c]) c++; if (K[c] >= lk) break; K[i] = K[c]; V[i] = V[c]; i = c; } K[i] = lk; V[i] = lv; }
+    return [tk, top]; }
+  get size() { return this.k.length; } }
+function route(o, t, s, w, mode, safe) {
+  const NK = 2 * CL.length + 1, nu = nodeUtci(s);
+  const dist = new Map(), prev = new Map(), done = new Set();
+  const key = (n, p) => n * NK + (p + 1);
+  const h = new Heap(); const k0 = key(o, -1); dist.set(k0, 0); h.push(0, k0);
+  while (h.size) {
+    const [dc, st] = h.pop(); if (done.has(st)) continue; done.add(st);
+    const u = Math.floor(st / NK), paid = st % NK - 1;
+    if (u === t) { const path = [u]; let q = st; while (prev.has(q)) { q = prev.get(q); path.push(Math.floor(q / NK)); } return path.reverse(); }
+    for (let j = adjStart[u]; j < adjStart[u + 1]; j++) {
+      const e = adjEdge[j], v = adjNode[j];
+      let c = D.elen[e] * (1 + w * disc(eU(e, s))), np = paid;
+      if (safe && D.ekind[e] === 2) c *= SAFE;
+      if (xCl[e] !== -2) {
+        const W = crossWait(e, s, mode);
+        if (W.key < 0 || W.key !== paid) c += W.sec * SPEED * (1 + w * disc(nu[v]));
+        if (W.key >= 0) np = W.key;
+      } else if (paid >= 0 && !nearCluster(v, paid >> 1)) np = -1;
+      const ns = key(v, np), nd = dc + c;
+      if (nd < (dist.has(ns) ? dist.get(ns) : Infinity)) { dist.set(ns, nd); prev.set(ns, st); h.push(nd, ns); }
+    }
+  }
+  return null;
+}
+function edgeBetween(a, b) { for (let j = adjStart[a]; j < adjStart[a + 1]; j++) if (adjNode[j] === b) return adjEdge[j]; return -1; }
+function metrics(path, s, mode) {
+  const nu = nodeUtci(s); let L = 0, U = 0, S = 0, X46 = 0, wait = 0, nsig = 0, paid = -1, wet = 0, H = 0, C = 0, Hw = 0, Cw = 0;   // Hw/Cw：等紅燈的部分
+  const segs = [], comp = new Float64Array(7);
+  for (let i = 0; i + 1 < path.length; i++) {
+    const a = path[i], b = path[i + 1], e = edgeBetween(a, b), l = D.elen[e], u = eU(e, s), sun = SUN[e * (D.ns || 48) + s - (D.s0 || 0)] / 100;
+    L += l; U += u * l; S += sun * l; if (u > 46) X46 += l; comp[D.ekind[e]] += l;
+    H += l / SPEED / 60 * hOver(u); C += l / SPEED / 60 * cUnder(u);
+    const p = SH ? SH[e] / 100 : 0; wet += l * (1 - p);
+    const seg = {e, a, b, l, u, sun, p, wait: null, cross: xCl[e] !== -2};
+    if (seg.cross) {
+      const W = crossWait(e, s, mode);
+      if (W.key < 0 || W.key !== paid) {
+        wait += W.sec; Hw += W.sec / 60 * hOver(nu[b]); Cw += W.sec / 60 * cUnder(nu[b]);
+        if (W.key >= 0) { nsig++; seg.wait = W; } else seg.xwait = W.sec;
+      }
+      if (W.key >= 0) paid = W.key;
+    } else if (paid >= 0 && !nearCluster(b, paid >> 1)) paid = -1;
+    segs.push(seg);
+  }
+  const walk = L / SPEED / 60;
+  return {path, segs, length: L, walk, wait: wait / 60, total: walk + wait / 60, nsig, utci: U / L, sun: S / L, extreme: X46 / L,
+          hdose: H + Hw, cdose: C + Cw, dose: (H + Hw) + (C + Cw), comp: Array.from(comp, x => x / L),   // 熱負荷、偏冷負荷、總負荷 L = H + C（°C·min，含等紅燈）
+          rain: wet / SPEED + wait, shelter: 1 - wet / L};   // 雨天：估算淋雨秒數（露天步行＋等紅燈）、遮蔽比例
+}
+// ======== 雨天模式（2026-10-25）：時間 ≤ 最快 1.3 倍下，估算淋雨時間最少（精確解） ========
+// 淋雨秒數 = Σ 長度 × (1 − 遮蔽機率) ÷ 1.2 m/s ＋ 等紅燈秒數；遮蔽機率 = 街景抽查的實際比例（期望值模型）
+// 資源限制最短路徑：A*（剩餘淋雨下界）＋ 支配剪枝，狀態 = 點 × 剛等過的號誌路口與方向（同 route）
+const wetLen = e => D.elen[e] * (1 - SH[e] / 100);
+function revDist(t, wf) {
+  const d = new Float64Array(NN).fill(Infinity), h = new Heap(); d[t] = 0; h.push(0, t);
+  while (h.size) {
+    const [dc, u] = h.pop(); if (dc > d[u]) continue;
+    for (let j = adjStart[u]; j < adjStart[u + 1]; j++) { const v = adjNode[j], nd = dc + wf(adjEdge[j]); if (nd < d[v]) { d[v] = nd; h.push(nd, v); } }
+  }
+  return d;
+}
+function rainRoute(o, t, s, mode, T) {
+  const ht = revDist(t, e => D.elen[e]), hw = revDist(t, wetLen), NK = 2 * CL.length + 1, labels = new Map();
+  const ln = [o], lp = [-1], lw = [0], lt = [0], lpar = [-1], h = new Heap(); h.push(hw[o] / SPEED, 0);
+  let n = 0;
+  while (h.size) {
+    const id = h.pop()[1], u = ln[id], paid = lp[id];
+    if (u === t) { const path = []; for (let q = id; q >= 0; q = lpar[q]) path.push(ln[q]); return path.reverse(); }
+    if (++n > 3e6) return null;
+    for (let j = adjStart[u]; j < adjStart[u + 1]; j++) {
+      const e = adjEdge[j], v = adjNode[j]; let wt = 0, np = paid;
+      if (xCl[e] !== -2) { const W = crossWait(e, s, mode); if (W.key < 0 || W.key !== paid) wt = W.sec; if (W.key >= 0) np = W.key; }
+      else if (paid >= 0 && !nearCluster(v, paid >> 1)) np = -1;
+      const nt = lt[id] + D.elen[e] / SPEED + wt; if (nt + ht[v] / SPEED > T + 1e-6) continue;
+      const nw = lw[id] + wetLen(e) / SPEED + wt, key = v * NK + np + 1, L = labels.get(key) || [];
+      let dom = false; for (let k = 0; k < L.length; k += 2) if (L[k] <= nw + 1e-9 && L[k + 1] <= nt + 1e-9) { dom = true; break; }
+      if (dom) continue;
+      const L2 = []; for (let k = 0; k < L.length; k += 2) if (!(nw <= L[k] && nt <= L[k + 1])) L2.push(L[k], L[k + 1]);
+      L2.push(nw, nt); labels.set(key, L2);
+      lpar.push(id); ln.push(v); lp.push(np); lw.push(nw); lt.push(nt); h.push(nw + hw[v] / SPEED, ln.length - 1);
+    }
+  }
+  return null;
+}
+function planRain(o, t, s, mode) {
+  const p0 = route(o, t, s, 0, mode, false); if (!p0) return null;
+  const fast = metrics(p0, s, mode), p = rainRoute(o, t, s, mode, DETOUR * fast.total * 60);
+  return {fast, cool: p ? metrics(p, s, mode) : fast};
+}
+function plan(o, t, s, mode, safe) {
+  if (state.rain && SH) return planRain(o, t, s, mode);
+  const rows = [];
+  for (const w of WS) { const p = route(o, t, s, w, mode, safe); if (p) { const m = metrics(p, s, mode); m.w = w; rows.push(m); } }
+  if (!rows.length) return null;
+  const fast = rows[0];
+  const ok = rows.filter(r => r.total <= DETOUR * fast.total + 1e-9);
+  const cool = ok.reduce((a, b) => b.dose < a.dose ? b : a);
+  return {fast, cool};
+}
+
+// ======== YouBike：走到借車站 → 借車 → 騎車 → 還車 → 走到終點 ========
+// 騎車速度：2026 年 7 月大安區 84.7 萬趟租借紀錄反推（已含平均等紅燈）；熱度分鐘不加騎車迎面風
+const BWS = [0, 0.5, 1, 2, 4, 8, 16], RENT_MIN = 1, RETURN_MIN = 1, ST_RADIUS = 600, ST_MAX = 6, FREE_MIN = 30;
+let BK = null;   // 騎車路網
+async function loadBike() {
+  if (BK) return BK;
+  const J = await (await fetch("bike.json")).json();
+  const n = J.lat.length, m = J.eu.length;
+  const bx = new Float64Array(n), by = new Float64Array(n);
+  for (let i = 0; i < n; i++) { bx[i] = (J.lon[i] - D.lon0) * D.kx; by[i] = (J.lat[i] - D.lat0) * D.ky; }
+  // 有向鄰接：edir 0 雙向、1 只能 eu→ev、2 只能 ev→eu
+  const deg = new Int32Array(n + 1);
+  for (let e = 0; e < m; e++) { const d = J.edir[e]; if (d !== 2) deg[J.eu[e] + 1]++; if (d !== 1) deg[J.ev[e] + 1]++; }
+  for (let i = 0; i < n; i++) deg[i + 1] += deg[i];
+  const aE = new Int32Array(deg[n]), aN = new Int32Array(deg[n]), fill = deg.slice();
+  for (let e = 0; e < m; e++) {
+    const a = J.eu[e], b = J.ev[e], d = J.edir[e];
+    if (d !== 2) { aE[fill[a]] = e; aN[fill[a]++] = b; }
+    if (d !== 1) { aE[fill[b]] = e; aN[fill[b]++] = a; }
+  }
+  const UTb = dec(J.utci, J);
+  const st = J.stations.filter(s => s[5] === 1).map(s => {
+    const w = nearestNode(s[1], s[2]);
+    return {name: s[0], lat: s[1], lon: s[2], docks: s[3], b: s[4], w: w.n, x: (s[2] - D.lon0) * D.kx, y: (s[1] - D.lat0) * D.ky};
+  });
+  BK = {J, n, m, bx, by, start: deg, aE, aN, UTb, st, dist: new Float64Array(n), prev: new Int32Array(n), pe: new Int32Array(n), done: new Uint8Array(n)};
+  return BK;
+}
+const bU = (e, s) => BK.UTb.off + BK.UTb.a[e * BK.J.ns + s - BK.J.s0] * BK.UTb.step;
+const isPeak = s => (s >= 14 && s < 20) || (s >= 34 && s < 40);   // 平日 7–10 時、17–20 時
+function bikeSpeed(s) {
+  const k = `${state.bikeType}_${isPeak(s) ? "尖峰" : "離峰"}`, v = BK.J.speed[k];
+  return {kmh: [v.road, v.shared_sidewalk, v.bike_lane], fixed: v.fixed};
+}
+function edgeMin(e, sp) { return BK.J.elen[e] / 1000 / sp.kmh[BK.J.ekind[e]] * 60; }
+
+// 步行：從一點出發，找到所有目標點為止（同 route()，含號誌）
+function walkTree(o, targets, s, w, mode, safe) {
+  const NK = 2 * CL.length + 1, nu = nodeUtci(s), key = (n, p) => n * NK + (p + 1);
+  const dist = new Map(), prev = new Map(), done = new Set(), got = new Map(), left = new Set(targets);
+  const h = new Heap(); const k0 = key(o, -1); dist.set(k0, 0); h.push(0, k0);
+  while (h.size && left.size) {
+    const [dc, st] = h.pop(); if (done.has(st)) continue; done.add(st);
+    const u = Math.floor(st / NK), paid = st % NK - 1;
+    if (left.has(u)) { left.delete(u); got.set(u, {cost: dc / SPEED / 60, st}); }
+    if (dc > 40 * SPEED * 60 * (1 + w)) break;           // 走超過約 40 分鐘還沒到：放棄
+    for (let j = adjStart[u]; j < adjStart[u + 1]; j++) {
+      const e = adjEdge[j], v = adjNode[j];
+      let c = D.elen[e] * (1 + w * disc(eU(e, s))), np = paid;
+      if (safe && D.ekind[e] === 2) c *= SAFE;
+      if (xCl[e] !== -2) {
+        const W = crossWait(e, s, mode);
+        if (W.key < 0 || W.key !== paid) c += W.sec * SPEED * (1 + w * disc(nu[v]));
+        if (W.key >= 0) np = W.key;
+      } else if (paid >= 0 && !nearCluster(v, paid >> 1)) np = -1;
+      const ns = key(v, np), nd = dc + c;
+      if (nd < (dist.has(ns) ? dist.get(ns) : Infinity)) { dist.set(ns, nd); prev.set(ns, st); h.push(nd, ns); }
+    }
+  }
+  const path = n => { const g = got.get(n); if (!g) return null; const p = [n]; let q = g.st; while (prev.has(q)) { q = prev.get(q); p.push(Math.floor(q / NK)); } return p.reverse(); };
+  return {got, path};
+}
+// 騎車：時間 ×（1 + w × 熱度），有向路網
+function bikeTree(src, targets, s, w, sp) {
+  const {n, start, aE, aN, dist, prev, pe, done} = BK;
+  dist.fill(Infinity); done.fill(0); prev.fill(-1);
+  const left = new Set(targets), h = new Heap(); dist[src] = 0; h.push(0, src);
+  while (h.size && left.size) {
+    const [dc, u] = h.pop(); if (done[u]) continue; done[u] = 1; left.delete(u);
+    for (let j = start[u]; j < start[u + 1]; j++) {
+      const e = aE[j], v = aN[j], nd = dc + edgeMin(e, sp) * (1 + w * disc(bU(e, s)));
+      if (nd < dist[v]) { dist[v] = nd; prev[v] = u; pe[v] = e; h.push(nd, v); }
+    }
+  }
+  const res = new Map();
+  for (const t of targets) if (done[t]) {
+    const p = [t], es = []; let q = t; while (prev[q] >= 0) { es.push(pe[q]); q = prev[q]; p.push(q); }
+    res.set(t, {cost: dist[t], path: p.reverse(), edges: es.reverse()});
+  }
+  return res;
+}
+function bikeMetrics(path, edges, s, sp) {
+  let L = 0, T = 0, UT = 0, H = 0, C = 0, X38 = 0; const comp = [0, 0, 0], segs = [];
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i], l = BK.J.elen[e], t = edgeMin(e, sp), u = bU(e, s);
+    L += l; T += t; UT += u * t; H += hOver(u) * t; C += cUnder(u) * t; if (u >= 38) X38 += t; comp[BK.J.ekind[e]] += l;
+    segs.push({e, a: path[i], b: path[i + 1], l, u, t});
+  }
+  return {path, edges, segs, length: L, ride: T, utciMin: UT, hdose: H, cdose: C, dose: H + C, x38: X38, comp: comp.map(x => L ? x / L : 0)};
+}
+const near = (pt, r) => BK.st.map(st => ({st, d: Math.hypot(st.x - (pt.lon - D.lon0) * D.kx, st.y - (pt.lat - D.lat0) * D.ky)}))
+  .filter(x => x.d <= r).sort((a, b) => a.d - b.d).slice(0, ST_MAX).map(x => x.st);
+function walkPart(path, s, mode) {
+  if (!path || path.length < 2) return {path: path || [], segs: [], length: 0, walk: 0, wait: 0, total: 0, hdose: 0, cdose: 0, dose: 0, utciMin: 0, nsig: 0};
+  const m = metrics(path, s, mode); m.utciMin = m.utci * m.total; return m;
+}
+function planBike(A, B, s, mode, safe) {
+  const sp = bikeSpeed(s), nu = nodeUtci(s);
+  let R = near(A, ST_RADIUS), T = near(B, ST_RADIUS);
+  if (!R.length) R = near(A, 1200).slice(0, 3);
+  if (!T.length) T = near(B, 1200).slice(0, 3);
+  if (!R.length || !T.length) return {err: "起點或終點附近 1.2 公里內沒有 YouBike 站"};
+  const cands = [];
+  for (const w of BWS) {
+    const wa = walkTree(A.node, R.map(r => r.w), s, w, mode, safe);
+    const wb = walkTree(B.node, T.map(t => t.w), s, w, mode, safe);   // 從終點往回找（步行路網雙向）
+    let best = null;
+    for (const r of R) {
+      const ga = wa.got.get(r.w); if (!ga) continue;
+      const uR = nu[r.w], cR = RENT_MIN * (1 + w * disc(uR));
+      const bt = bikeTree(r.b, T.filter(t => t.name !== r.name).map(t => t.b), s, w, sp);
+      for (const t of T) {
+        if (t.name === r.name) continue;
+        const gb = wb.got.get(t.w), bb = bt.get(t.b); if (!gb || !bb) continue;
+        const uT = nu[t.w], cost = ga.cost + cR + bb.cost + RETURN_MIN * (1 + w * disc(uT)) + gb.cost;
+        if (!best || cost < best.cost) best = {cost, r, t, bb, uR, uT};
+      }
+    }
+    if (!best) continue;
+    const w1 = walkPart(wa.path(best.r.w), s, mode);
+    const p2 = wb.path(best.t.w); const w2 = walkPart(p2 ? p2.slice().reverse() : null, s, mode);
+    const bk = bikeMetrics(best.bb.path, best.bb.edges, s, sp);
+    const hR = hOver(best.uR) * RENT_MIN + hOver(best.uT) * RETURN_MIN, cR2 = cUnder(best.uR) * RENT_MIN + cUnder(best.uT) * RETURN_MIN;
+    const hd = w1.hdose + bk.hdose + w2.hdose + hR, cd = w1.cdose + bk.cdose + w2.cdose + cR2;
+    const total = w1.total + RENT_MIN + bk.ride + RETURN_MIN + w2.total;
+    cands.push({w, rent: best.r, ret: best.t, w1, bk, w2, total, walkMin: w1.total + w2.total,
+      bill: sp.fixed + bk.ride, billSlow: (sp.fixed + bk.ride) / BK.J.slow,
+      hdose: hd, cdose: cd, dose: hd + cd,
+      utci: (w1.utciMin + best.uR * RENT_MIN + bk.utciMin + best.uT * RETURN_MIN + w2.utciMin) / total,
+      length: w1.length + bk.length + w2.length, nsig: (w1.nsig || 0) + (w2.nsig || 0)});
+  }
+  if (!cands.length) return {err: "找不到可行的 YouBike 路線"};
+  const fast = cands[0];
+  let ok, over = false;
+  if (state.bikeType === "一般車") { ok = cands.filter(c => c.billSlow <= FREE_MIN); if (!ok.length) { ok = [fast]; over = true; } }
+  else ok = cands.filter(c => c.total <= DETOUR * fast.total + 1e-9);
+  const cool = ok.reduce((a, b) => b.dose < a.dose ? b : a);
+  return {bike: true, fast, cool, over};
+}
+
+// ======== 路線說明（轉彎、等紅燈） ========
+const KL = ["人行道", "標線人行道", "人車共道", "步道", "斑馬線", "有頂通道", "過馬路"];
+function label(e) {
+  if (D.ehw[e] === 1) return "階梯"; if (D.ehw[e] === 2) return "電梯";
+  const nm = D.names[D.ename[e]], k = D.ekind[e];
+  return nm && k <= 2 ? `${nm}（${KL[k]}）` : (nm && k === 3 ? nm : KL[k]);
+}
+function bearing(a, b) { return Math.atan2(X[b] - X[a], Y[b] - Y[a]) * 180 / Math.PI; }
+function turnWord(d) { d = ((d + 540) % 360) - 180; if (Math.abs(d) < 30) return "直行"; if (d > 0) return d > 120 ? "迴轉" : "右轉"; return d < -120 ? "迴轉" : "左轉"; }
+function steps(m, s) {
+  // 先切成「步驟」（同一條路／同一種鋪面為一段；號誌與無號誌過馬路獨立成步驟），轉向最後再用前後各 ~20 m 的方向判斷
+  const out = []; let cur = null;
+  const flush = () => { if (cur && cur.l > 0.5) out.push(cur); cur = null; };
+  const add = (g) => { cur.l += g.l; cur.uw += g.u * g.l; cur.sw += g.sun * g.l; cur.pw += g.p * g.l; cur.nodes.push(g.b); cur.cum.push(cur.l); };
+  for (const g of m.segs) {
+    if (g.cross) {
+      const road = D.names[D.ename[g.e]] || "馬路";
+      if (g.wait) { flush(); const c = CL[g.wait.k]; out.push({wait: true, text: `${c.name || "號誌路口"}：過${road}`, sec: g.wait.sec, u: nodeUtci(s)[g.b]}); continue; }
+      if (xBase[g.e] >= 5 && g.xwait) { flush(); out.push({xing: true, text: `過${road}（無號誌）`, l: g.l, u: g.u}); continue; }
+      if (cur) add(g);                     // 巷弄換邊：併入目前路段
+      continue;
+    }
+    const lab = label(g.e);
+    if (!cur || cur.lab !== lab) { flush(); cur = {lab, l: 0, uw: 0, sw: 0, pw: 0, nodes: [g.a], cum: [0]}; }
+    add(g);
+  }
+  flush();
+  const merged = [];
+  for (const st of out) {
+    const p = merged[merged.length - 1];
+    const walk = x => x && !x.wait && !x.xing;
+    if (walk(st) && walk(p) && (st.l < 15 && st.lab !== "斑馬線" || p.lab === st.lab)) {
+      p.uw += st.uw; p.sw += st.sw; p.pw += st.pw; const base = p.l; p.l += st.l;
+      st.nodes.slice(1).forEach((n, i) => { p.nodes.push(n); p.cum.push(base + st.cum[i + 1]); });
+      continue;
+    }
+    merged.push(st);
+  }
+  const headBr = st => { let i = st.cum.findIndex(c => c >= 20); if (i < 0) i = st.nodes.length - 1; return bearing(st.nodes[0], st.nodes[Math.max(i, 1)]); };
+  const tailBr = st => { const L = st.l; let i = st.cum.findIndex(c => c >= L - 20); i = Math.min(Math.max(i, 0), st.nodes.length - 2); return bearing(st.nodes[i], st.nodes[st.nodes.length - 1]); };
+  let prev = null;
+  for (const st of merged) {
+    if (st.wait || st.xing) continue;
+    st.turn = prev ? turnWord(headBr(st) - tailBr(prev)) : "出發";
+    prev = st;
+  }
+  return merged;
+}
+
+// ======== 地圖 ========
+let map, utciLayer, routeLayers = [], sigLayer, mA, mB;
+function initMap() {
+  const b = L.latLngBounds(D.bounds);
+  map = L.map("map", {zoomControl: false, attributionControl: false, maxBounds: b.pad(0.25), minZoom: 13, maxZoom: 19, zoomSnap: 0.5});
+  map.setView(b.getCenter(), 14);
+  // 頁面在框架裡、一開始容器可能還沒有大小 → 尺寸改變時重新量，並維持中心
+  if (window.ResizeObserver) new ResizeObserver(() => map.invalidateSize({animate: false})).observe($("#map"));
+  L.control.zoom({position: "topright"}).addTo(map);
+  L.control.scale({imperial: false, position: "bottomleft"}).addTo(map);
+  L.imageOverlay("buildings.png", b, {opacity: 1}).addTo(map);
+  utciLayer = L.imageOverlay(`utci_${slotLabel(state.slot).replace(":", "")}.png`, b, {opacity: .78, className: "utci-layer"}).addTo(map);
+  // 路網（細線，供辨識街道）
+  const rd = L.canvas({padding: .3}), lines = {};
+  for (let e = 0; e < NE; e++) {
+    const k = D.ekind[e]; if (k === 6) continue;
+    const cls = k <= 1 ? "main" : k === 2 ? "lane" : "foot";
+    (lines[cls] = lines[cls] || []).push([[D.lat[D.eu[e]], D.lon[D.eu[e]]], [D.lat[D.ev[e]], D.lon[D.ev[e]]]]);
+  }
+  L.polyline(lines.foot, {renderer: rd, color: "#ffffff", weight: 1, opacity: .45, interactive: false}).addTo(map);
+  L.polyline(lines.lane, {renderer: rd, color: "#ffffff", weight: 1.2, opacity: .5, dashArray: "3 4", interactive: false}).addTo(map);
+  L.polyline(lines.main, {renderer: rd, color: "#ffffff", weight: 2, opacity: .75, interactive: false}).addTo(map);
+  sigLayer = L.layerGroup().addTo(map);
+  map.on("click", ev => setPoint(state.pick, ev.latlng.lat, ev.latlng.lng, null));
+}
+function pinIcon(k) { return L.divIcon({className: "", html: `<div class="pin ${k.toLowerCase()}"><span>${k === "A" ? "起" : "終"}</span></div>`, iconSize: [26, 26], iconAnchor: [13, 26]}); }
+
+// ======== 設定起終點 ========
+function setPoint(which, lat, lon, name) {
+  const nn = nearestNode(lat, lon);
+  if (nn.n < 0) return;
+  if (nn.d > 80) { toast(`這個位置離可步行路網 ${Math.round(nn.d)} m，已貼到最近的路上。目前範圍：${D.area}。`, 4500); }
+  const pt = {lat, lon, node: nn.n, name: name || `地圖上的點（${lat.toFixed(5)}, ${lon.toFixed(5)}）`};
+  state[which] = pt;
+  $(which === "A" ? "#qa" : "#qb").value = name || "地圖上選的點";
+  const mk = which === "A" ? "mA" : "mB";
+  if (window[mk]) window[mk].setLatLng([lat, lon]); else window[mk] = L.marker([lat, lon], {icon: pinIcon(which), keyboard: false}).addTo(map);
+  if (which === "A" && !state.B) setPick("B");
+  else if (which === "B" && !state.A) setPick("A");
+  compute();
+}
+function setPick(p) { state.pick = p; $("#pickA").setAttribute("aria-pressed", p === "A"); $("#pickB").setAttribute("aria-pressed", p === "B"); }
+
+// ======== 計算與顯示 ========
+function fmtMin(m) { return m < 1 ? `${Math.round(m * 60)} 秒` : `${Math.round(m)}`; }
+function uColor(u) { const L = D.legend; for (let i = 1; i < L.length; i++) if (u <= L[i][0]) { return L[i - 1][1]; } return L[L.length - 1][1]; }
+function uChip(u) { const c = uColor(u); return `<span class="u" style="background:${c}${u < 9 ? ";color:#fff" : ""}">${u.toFixed(1)}°C</span>`; }
+function compute() {
+  if (!state.A || !state.B) return;
+  const s = state.slot;
+  if (state.A.node === state.B.node) { toast("起點和終點太近了"); return; }
+  const r = plan(state.A.node, state.B.node, s, state.mode, state.safe);
+  if (!r) { toast("這兩點之間找不到步行路線"); return; }
+  if (!state.rain && r.fast.dose < ZERO) r.cool = r.fast;     // 最快路線幾乎沒有熱或偏冷負荷 → 不必繞路
+  if (state.travel === "bike") {
+    if (!BK) { toast("載入 YouBike 路網中…", 1500); loadBike().then(() => compute()).catch(() => toast("YouBike 資料載入失敗", 5000)); return; }
+    const b = planBike(state.A, state.B, s, state.mode, state.safe);
+    if (b.err) { toast(b.err, 4500); state.res = r; state.kind = loadKind(r.fast); draw(); return; }
+    if (b.fast.dose < ZERO) b.cool = b.fast;
+    b.walkRef = r.fast; state.res = b; state.kind = loadKind(b.fast); drawBike(); return;
+  }
+  state.res = r; state.kind = loadKind(r.fast); draw();
+}
+// 推薦路線的名稱看「最快路線」的負荷組成（不看推薦路線本身，避免名稱跟著結果變來變去）
+function loadKind(f) {
+  const h = f.hdose >= ZERO, c = f.cdose >= ZERO;
+  return h && c ? "mix" : h ? "heat" : c ? "cold" : "none";
+}
+const KIND_NAME = {heat: "最涼", cold: "最暖", mix: "低不舒適", none: "建議"};
+function loadTxt(m) {
+  const k = state.kind;
+  if (k === "cold") return `偏冷負荷 <b>${Math.round(m.cdose)}</b>`;
+  if (k === "mix") return `熱 <b>${Math.round(m.hdose)}</b>・偏冷 <b>${Math.round(m.cdose)}</b>`;
+  return `熱負荷 <b>${Math.round(m.hdose)}</b>`;
+}
+// 推薦路線比最快路線改善多少（最快路線該項負荷為 0 時不算百分比）
+function gainTxt(f, c) {
+  const pct = (a, b) => a >= ZERO ? `，少 <b>${Math.round((a - b) / a * 100)}%</b>` : "";
+  const k = state.kind;
+  if (k === "cold") return `偏冷負荷 ${Math.round(f.cdose)} → <b>${Math.round(c.cdose)}</b>${pct(f.cdose, c.cdose)}`;
+  if (k === "mix") return `不舒適負荷 ${Math.round(f.dose)} → <b>${Math.round(c.dose)}</b>${pct(f.dose, c.dose)}（熱 ${Math.round(f.hdose)} → ${Math.round(c.hdose)}、偏冷 ${Math.round(f.cdose)} → ${Math.round(c.cdose)}）`;
+  return `熱負荷 ${Math.round(f.hdose)} → <b>${Math.round(c.hdose)}</b>${pct(f.hdose, c.hdose)}`;
+}
+function noLoadTxt() {
+  return D.cold_low == null ? `這個時段沿路 UTCI 都不到 ${D.heat_low ?? 32}°C，熱壓力低，走最快的路線就好。`
+    : `這個時段沿路 UTCI 都在 ${D.cold_low}–${D.heat_low ?? 32}°C 之間，沒有熱負荷也沒有偏冷負荷，走最快的路線就好。`;
+}
+function redraw() { if (!state.res) return; state.res.bike ? drawBike() : draw(); }
+
+// ======== YouBike 結果顯示 ========
+let stnLayer = null;
+function drawBike() {
+  const r = state.res, s = state.slot, selCool = state.sel === "cool";
+  routeLayers.forEach(l => map.removeLayer(l)); routeLayers = []; sigLayer.clearLayers();
+  const wl = p => p.map(n => [D.lat[n], D.lon[n]]), bl = p => p.map(n => [BK.J.lat[n], BK.J.lon[n]]);
+  const add = (ll, o) => routeLayers.push(L.polyline(ll, o).addTo(map));
+  const fastCol = getComputedStyle(document.documentElement).getPropertyValue("--fast").trim() || "#2a3140", coolCol = "#0d6b63";
+  const drawOne = (c, col, on) => {
+    const wgt = on ? 7 : 4, op = on ? 1 : .6;
+    for (const w of [c.w1, c.w2]) if (w.path.length > 1) { add(wl(w.path), {color: "#fff", weight: 5, opacity: .8 * op}); add(wl(w.path), {color: col, weight: 3, dashArray: "2 6", lineCap: "round", opacity: op}); }
+    add(bl(c.bk.path), {color: "#fff", weight: wgt + 3, opacity: .85 * op});
+    add(bl(c.bk.path), {color: col, weight: wgt, opacity: op, dashArray: col === coolCol ? null : "10 6"});
+  };
+  if (selCool) { drawOne(r.fast, fastCol, false); drawOne(r.cool, coolCol, true); } else { drawOne(r.cool, coolCol, false); drawOne(r.fast, fastCol, true); }
+  const m = selCool ? r.cool : r.fast;
+  const icon = (t, cls) => L.divIcon({className: "", html: `<div class="stn ${cls}">${t}</div>`, iconSize: [22, 22], iconAnchor: [11, 11]});
+  L.marker([m.rent.lat, m.rent.lon], {icon: icon("借", "")}).bindTooltip(`借車：${m.rent.name}`, {direction: "top"}).addTo(sigLayer);
+  L.marker([m.ret.lat, m.ret.lon], {icon: icon("還", "ret")}).bindTooltip(`還車：${m.ret.name}`, {direction: "top"}).addTo(sigLayer);
+  for (const w of [m.w1, m.w2]) for (const g of w.segs || []) if (g.wait) {
+    L.marker([D.lat[g.b], D.lon[g.b]], {icon: L.divIcon({className: "", html: '<div class="sig"></div>', iconSize: [12, 12], iconAnchor: [6, 6]})})
+      .bindTooltip(`${CL[g.wait.k].name || "號誌路口"}：等約 ${g.wait.sec} 秒`, {direction: "top"}).addTo(sigLayer);
+  }
+  const card = (c, v, mm) => {
+    $(v).innerHTML = `${fmtMin(c.total)}<small> 分</small>`;
+    const bill = state.bikeType === "一般車"
+      ? `<br>計費 <b>${Math.round(c.bill)}</b> 分・慢騎 <b class="${c.billSlow > FREE_MIN ? "warn" : ""}">${Math.round(c.billSlow)}</b> 分` : "";
+    $(mm).innerHTML = `走 <b>${fmtMin(c.walkMin)}${c.walkMin < 1 ? "" : " 分"}</b>・騎 <b>${fmtMin(c.bk.ride)}${c.bk.ride < 1 ? "" : " 分"}</b><br>平均 <b>${c.utci.toFixed(1)}°C</b>・${loadTxt(c)}${bill}`;
+  };
+  card(r.cool, "#vCool", "#mCool"); card(r.fast, "#vFast", "#mFast");
+  const dl = $("#delta"); dl.hidden = false;
+  const wf = r.walkRef, same = r.cool.w === r.fast.w || (r.cool.rent === r.fast.rent && r.cool.ret === r.fast.ret && r.cool.bk.path.join() === r.fast.bk.path.join());
+  const nm = KIND_NAME[state.kind];
+  $("#cardCool .k").lastChild.textContent = `${nm} YouBike`;
+  let txt = state.kind === "none" ? noLoadTxt() : same ? `這個時段最快的 YouBike 路線就是${nm}的。` :
+    `${nm}路線：${gainTxt(r.fast, r.cool)}，多花 <b>${Math.max(0, Math.round((r.cool.total - r.fast.total) * 60))} 秒</b>。`;
+  if (wf && state.kind !== "none") txt += `<br>和全程走最快的路比：${gainTxt(wf, r.cool)}，時間 ${Math.round(wf.total)} → ${Math.round(r.cool.total)} 分。`;
+  if (r.over) txt += `<br><span class="warn">騎得慢的人可能超過免費 30 分鐘，建議改搭其他交通工具或分段借還。</span>`;
+  dl.innerHTML = txt;
+  // 路線說明
+  const li = [], tag = x => uChip(x);
+  const walkList = (w, first) => steps(w, s).map((x, i) => x.wait
+    ? `<li class="wait"><span class="ic">燈</span><span class="t">${x.text}<br><span class="s">${state.mode === "worst" ? "最壞" : "平均"}約等 ${x.sec} 秒</span></span>${tag(x.u)}</li>`
+    : x.xing ? `<li><span class="ic">⇄</span><span class="t">${x.text}</span>${tag(x.u)}</li>`
+    : `<li><span class="ic">${i === 0 && first ? "起" : "走"}</span><span class="t">${i === 0 ? "" : x.turn + "，"}${x.lab === "斑馬線" ? "走斑馬線" : "沿" + x.lab}<br><span class="s">步行 ${Math.round(x.l)} m・遮蔭 ${Math.round(100 - x.sw / x.l * 100)}%</span></span>${tag(x.uw / x.l)}</li>`);
+  if (m.w1.path.length > 1) li.push(...walkList(m.w1, true)); else li.push(`<li><span class="ic">起</span><span class="t">起點就在借車站旁</span><span></span></li>`);
+  li.push(`<li class="stop"><span class="ic">借</span><span class="t">在 <b>${m.rent.name}</b> 借車<br><span class="s">約 1 分鐘・${state.bikeType}</span></span>${tag(nodeUtci(s)[m.rent.w])}</li>`);
+  // 騎車段：同一條路合併
+  const KB = ["道路", "人車共道", "自行車道"], groups = [];
+  for (const g of m.bk.segs) {           // 先依路名分段（沒路名的短段併入前一段），再把同名的相鄰段合併
+    const nm = BK.J.names[BK.J.ename[g.e]] || "", last = groups[groups.length - 1], kl = [0, 0, 0]; kl[BK.J.ekind[g.e]] = g.l;
+    if (last && (last.nm === nm || (!nm && g.l < 40))) { last.l += g.l; last.t += g.t; last.ut += g.u * g.t; last.kl[BK.J.ekind[g.e]] += g.l; last.nodes.push(g.b); }
+    else groups.push({nm, l: g.l, t: g.t, ut: g.u * g.t, kl, nodes: [g.a, g.b]});
+  }
+  const gm = [];
+  for (const g of groups) {
+    const p = gm[gm.length - 1];
+    if (p && (g.l < 40 || p.nm === g.nm || (!g.nm && p.nm && g.l < 120))) { p.l += g.l; p.t += g.t; p.ut += g.ut; g.kl.forEach((x, i) => p.kl[i] += x); p.nodes.push(...g.nodes.slice(1)); }
+    else gm.push(g);
+  }
+  for (const g of gm) { const k = g.kl.indexOf(Math.max(...g.kl)); g.lab = g.nm ? `${g.nm}（${KB[k]}為主）` : (k === 0 ? "巷弄" : KB[k]); }
+  const brg = (a, b) => Math.atan2(BK.bx[b] - BK.bx[a], BK.by[b] - BK.by[a]) * 180 / Math.PI;
+  let pg = null;
+  for (const g of gm) {
+    const turn = pg ? turnWord(brg(g.nodes[0], g.nodes[Math.min(3, g.nodes.length - 1)]) - brg(pg.nodes[Math.max(0, pg.nodes.length - 4)], pg.nodes[pg.nodes.length - 1])) : "出發";
+    li.push(`<li class="bike"><span class="ic">騎</span><span class="t">${pg ? turn + "，" : ""}騎${g.lab}<br><span class="s">${Math.round(g.l)} m・約 ${fmtMin(g.t)}${g.t < 1 ? "" : " 分"}</span></span>${tag(g.ut / g.t)}</li>`);
+    pg = g;
+  }
+  li.push(`<li class="stop"><span class="ic">還</span><span class="t">在 <b>${m.ret.name}</b> 還車<br><span class="s">約 1 分鐘・若滿站，系統會給 15 分鐘免費延長去附近站還</span></span>${tag(nodeUtci(s)[m.ret.w])}</li>`);
+  if (m.w2.path.length > 1) li.push(...walkList(m.w2, false));
+  li.push(`<li><span class="ic">終</span><span class="t">抵達${state.B.name.startsWith("地圖上") ? "終點" : state.B.name}</span><span></span></li>`);
+  $("#stepsTitle").textContent = `${selCool ? KIND_NAME[state.kind] : "最快"} YouBike 路線（${slotLabel(s)} 出發）`;
+  $("#steps").innerHTML = li.join("");
+}
+function showStations(on) {
+  if (stnLayer) { map.removeLayer(stnLayer); stnLayer = null; }
+  if (!on || !BK) return;
+  stnLayer = L.layerGroup(BK.st.map(st => L.marker([st.lat, st.lon], {icon: L.divIcon({className: "", html: '<div class="stdot"></div>', iconSize: [7, 7], iconAnchor: [4, 4]}), interactive: true})
+    .bindTooltip(`${st.name}（${st.docks} 格）`, {direction: "top"}))).addTo(map);
+}
+async function setTravel(t) {
+  if (t === "bike" && state.rain) { setRain(false); toast("雨天模式只支援步行，已關閉雨天模式。"); }
+  state.travel = t;
+  $("#tmWalk").setAttribute("aria-pressed", t === "walk"); $("#tmBike").setAttribute("aria-pressed", t === "bike");
+  $("#bikeRow").hidden = t !== "bike";
+  $("#cardCool .k").lastChild.textContent = t === "bike" ? "最涼 YouBike" : "最涼路線";
+  $("#cardFast .k").lastChild.textContent = t === "bike" ? "最快 YouBike" : "最快路線";
+  if (t === "bike") { try { await loadBike(); } catch (e) { toast("YouBike 資料載入失敗", 5000); return; } showStations(true); }
+  else showStations(false);
+  compute();
+}
+function setRain(on) {
+  if (on && !SH) { toast("雨天模式暫停公開：騎樓資料正在申請使用授權。", 5000); return; }
+  state.rain = on; document.body.classList.toggle("rainmode", on);
+  $("#rain").setAttribute("aria-pressed", on); $("#rain").textContent = `雨天模式：${on ? "開" : "關"}`;
+  $("#cardCool .k").lastChild.textContent = on ? "少淋雨路線" : (state.travel === "bike" ? "最涼 YouBike" : "最涼路線");   // 算完路線後 draw() 會依負荷組成改名
+  $("#safeHint").textContent = on ? "雨天模式不使用這個選項" : "路線偏向有人行道的路";
+}
+function setBikeType(b) {
+  state.bikeType = b; $("#btNormal").setAttribute("aria-pressed", b === "一般車"); $("#btE").setAttribute("aria-pressed", b === "電輔車"); compute();
+}
+function draw() {
+  const r = state.res, s = state.slot;
+  routeLayers.forEach(l => map.removeLayer(l)); routeLayers = []; sigLayer.clearLayers();
+  const ll = m => m.path.map(n => [D.lat[n], D.lon[n]]);
+  const selCool = state.sel === "cool";
+  const fastOpts = {color: getComputedStyle(document.documentElement).getPropertyValue("--fast").trim() || "#2a3140", weight: selCool ? 4 : 6, dashArray: "8 7", opacity: selCool ? .7 : 1};
+  const rain = r.cool.rain !== undefined && state.rain;
+  const coolCol = rain ? (getComputedStyle(document.documentElement).getPropertyValue("--rain").trim() || "#1d4ed8") : "#0d6b63";
+  routeLayers.push(L.polyline(ll(r.fast), {color: "#fff", weight: fastOpts.weight + 3, opacity: .7}).addTo(map));
+  routeLayers.push(L.polyline(ll(r.fast), fastOpts).addTo(map));
+  routeLayers.push(L.polyline(ll(r.cool), {color: "#fff", weight: (selCool ? 7 : 5) + 3, opacity: .9}).addTo(map));
+  routeLayers.push(L.polyline(ll(r.cool), {color: coolCol, weight: selCool ? 7 : 5, opacity: selCool ? 1 : .75}).addTo(map));
+  if (!selCool) { routeLayers.slice(0, 2).forEach(l => l.bringToFront()); }
+  const m = selCool ? r.cool : r.fast;
+  for (const g of m.segs) if (g.wait) {
+    const n = g.b; L.marker([D.lat[n], D.lon[n]], {icon: L.divIcon({className: "", html: '<div class="sig"></div>', iconSize: [12, 12], iconAnchor: [6, 6]})})
+      .bindTooltip(`${CL[g.wait.k].name || "號誌路口"}：等約 ${g.wait.sec} 秒`, {direction: "top"}).addTo(sigLayer);
+  }
+  const card = (m, v, mm) => {
+    $(v).innerHTML = `${fmtMin(m.total)}<small> 分</small>`;
+    const sw = Math.round((m.comp[0] + m.comp[1]) * 100), mix = Math.round(m.comp[2] * 100);
+    $(mm).innerHTML = rain
+      ? `走 <b>${Math.round(m.length)} m</b>・等燈 <b>${fmtMin(m.wait)}${m.wait < 1 ? "" : " 分"}</b><br>估算淋雨 <b>${fmtMin(m.rain / 60)}${m.rain < 60 ? "" : " 分"}</b>・遮蔽 <b>${Math.round(m.shelter * 100)}%</b><br>平均 <b>${m.utci.toFixed(1)}°C</b>（模型估計）`
+      : `走 <b>${Math.round(m.length)} m</b>・等燈 <b>${fmtMin(m.wait)}${m.wait < 1 ? "" : " 分"}</b><br>平均 <b>${m.utci.toFixed(1)}°C</b>・曬 <b>${Math.round(m.sun * 100)}%</b><br>${loadTxt(m)}・人車共道 <b>${mix}%</b>`;
+  };
+  card(r.cool, "#vCool", "#mCool"); card(r.fast, "#vFast", "#mFast");
+  const nm = KIND_NAME[state.kind];
+  if (!rain) $("#cardCool .k").lastChild.textContent = `${nm}路線`;
+  const same = r.cool.path.length === r.fast.path.length && r.cool.path.every((n, i) => n === r.fast.path[i]);
+  const dl = $("#delta");
+  if (rain) {
+    dl.hidden = false;
+    const dr = r.fast.rain - r.cool.rain, dt = (r.cool.total - r.fast.total) * 60;
+    dl.innerHTML = same || dr < 1 ? "這段路沒有更少淋雨的走法，最快路線就是最好的選擇。"
+      : `少淋雨約 <b>${Math.round(dr)} 秒</b>（估算），遮蔽比例 ${Math.round(r.fast.shelter * 100)}% → <b>${Math.round(r.cool.shelter * 100)}%</b>，` +
+        (dt > 0 ? `多花 <b>${Math.round(dt)} 秒</b>。` : `而且還快 <b>${Math.round(-dt)} 秒</b>。`);
+  }
+  else if (state.kind === "none") { dl.hidden = false; dl.textContent = noLoadTxt(); }
+  else if (same) { dl.hidden = false; dl.textContent = `這個時段最快的路線就是${nm}的路線。`; }
+  else {
+    const du = r.cool.utci - r.fast.utci, dt = (r.cool.total - r.fast.total) * 60;
+    dl.hidden = false;
+    dl.innerHTML = `${nm}路線：${gainTxt(r.fast, r.cool)}，平均體感${du < 0 ? "低" : "高"} <b>${Math.abs(du).toFixed(1)}°C</b>，` +
+      (dt > 0 ? `多花 <b>${Math.round(dt)} 秒</b>。` : `而且還快 <b>${Math.round(-dt)} 秒</b>。`);
+  }
+  const st = steps(m, s);
+  $("#stepsTitle").textContent = `${selCool ? (rain ? "少淋雨" : nm) : "最快"}路線說明（${slotLabel(s)} 出發）`;
+  $("#steps").innerHTML = st.map((x, i) => x.wait
+    ? `<li class="wait"><span class="ic">燈</span><span class="t">${x.text}<br><span class="s">${state.mode === "worst" ? "最壞" : "平均"}約等 ${x.sec} 秒，路口 ${x.u.toFixed(1)}°C</span></span>${uChip(x.u)}</li>`
+    : x.xing ? `<li><span class="ic">⇄</span><span class="t">${x.text}<br><span class="s">約 ${Math.round(x.l * 2)} m</span></span>${uChip(x.u)}</li>`
+    : `<li><span class="ic">${i === 0 ? "起" : x.turn === "左轉" ? "←" : x.turn === "右轉" ? "→" : x.turn === "迴轉" ? "↶" : "↑"}</span><span class="t">${i === 0 ? "" : x.turn + "，"}${x.lab === "斑馬線" ? "走斑馬線" : "沿" + x.lab}<br><span class="s">${Math.round(x.l)} m・${rain ? `遮雨約 ${Math.round(x.pw / x.l * 100)}%` : `遮蔭 ${Math.round(100 - x.sw / x.l * 100)}%`}</span></span>${uChip(x.uw / x.l)}</li>`).join("") +
+    `<li><span class="ic">終</span><span class="t">抵達${state.B.name.startsWith("地圖上") ? "終點" : state.B.name}</span><span></span></li>`;
+}
+function setSlot(s) {
+  state.slot = s; $("#tout").textContent = slotLabel(s); $("#lgTime").textContent = slotLabel(s);
+  if (utciLayer) utciLayer.setUrl(`utci_${slotLabel(s).replace(":", "")}.png`);
+  compute();
+}
+
+// ======== 搜尋 ========
+function norm(s) { return s.replace(/[\s　]/g, "").replace(/台/g, "臺").replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 65248)); }
+const CNUM = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+function normAddr(q) {
+  return norm(q).replace(/^(臺北市)?(大安區)?/, "").replace(/(\d)段/g, (m, d) => CNUM[+d] + "段").replace(/號.*$/, "號");
+}
+function findAddress(q) {
+  const t = normAddr(q);
+  const m = t.match(/^(.+?(?:路|街|大道)(?:[一二三四五六七八九]段)?)(?:(\d+)巷)?(?:(\d+)弄)?(?:(\d+)(?:之(\d+))?號?)?$/);
+  if (!m) return [];
+  const [, street, lane = "", alley = "", no, sub = ""] = m;
+  const key = `${street}|${lane}|${alley}`, grp = D.addr[key];
+  const base = `${street}${lane ? lane + "巷" : ""}${alley ? alley + "弄" : ""}`;
+  if (!grp) {
+    // 只打到路名：列出這條路有的巷弄
+    const ks = Object.keys(D.addr).filter(k => k.startsWith(street + "|")).slice(0, 5);
+    return ks.map(k => { const g = D.addr[k], v = Object.values(g)[Math.floor(Object.keys(g).length / 2)];
+      const [st, ln, al] = k.split("|"); return [`${st}${ln ? ln + "巷" : ""}${al ? al + "弄" : ""}`, v[0], v[1], "門牌（路段）"]; });
+  }
+  if (!no) { const ks = Object.keys(grp), v = grp[ks[Math.floor(ks.length / 2)]]; return [[base, v[0], v[1], "門牌（路段）"]]; }
+  const exact = grp[`${no}-${sub}`] || grp[`${no}-`];
+  if (exact) return [[`${base}${no}${sub ? "之" + sub : ""}號`, exact[0], exact[1], "門牌"]];
+  // 沒有這個號：找同一側（單雙號）最接近的
+  let best = null, bd = Infinity;
+  for (const [k, v] of Object.entries(grp)) { const n = parseInt(k); const d = Math.abs(n - no) + ((n % 2) !== (no % 2) ? 1000 : 0); if (d < bd) { bd = d; best = [n, v]; } }
+  return best ? [[`${base}${best[0]}號（最接近 ${no} 號的門牌）`, best[1][0], best[1][1], "門牌"]] : [];
+}
+function search(q) {
+  const n = norm(q); if (!n) return [];
+  const hits = [];
+  for (const a of findAddress(q)) hits.push([-1, 0, a]);
+  for (const p of D.places) { const nm = norm(p[0]); const i = nm.indexOf(n); if (i >= 0) hits.push([i === 0 ? 0 : 1, nm.length, p]); }
+  hits.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  return hits.slice(0, 8).map(h => h[2]);
+}
+function wireSearch(inp, box, which) {
+  let items = [], on = -1;
+  const render = () => { box.innerHTML = items.map((p, i) => `<button type="button" class="${i === on ? "on" : ""}" data-i="${i}"><span>${p[0]}</span><em>${p[3]}</em></button>`).join(""); box.hidden = !items.length; };
+  const choose = i => { const p = items[i]; if (!p) return; box.hidden = true; setPoint(which, p[1], p[2], p[0]); map.panTo([p[1], p[2]]); inp.blur(); };
+  inp.addEventListener("input", () => { items = search(inp.value); on = items.length ? 0 : -1; render(); });
+  inp.addEventListener("focus", () => { inp.select(); });
+  inp.addEventListener("keydown", ev => {
+    if (ev.key === "ArrowDown") { on = Math.min(on + 1, items.length - 1); render(); ev.preventDefault(); }
+    else if (ev.key === "ArrowUp") { on = Math.max(on - 1, 0); render(); ev.preventDefault(); }
+    else if (ev.key === "Enter") { if (items.length) choose(Math.max(on, 0)); else toast("找不到這個地點。可以輸入門牌（例：和平東路二段134號）、路名、路口，或直接點地圖。", 4500); }
+    else if (ev.key === "Escape") box.hidden = true;
+  });
+  box.addEventListener("mousedown", ev => ev.preventDefault());
+  box.addEventListener("click", ev => { const b = ev.target.closest("button"); if (b) choose(+b.dataset.i); });
+  inp.addEventListener("blur", () => setTimeout(() => box.hidden = true, 120));
+}
+
+// ======== 3D 建物（可開關；第一次開啟時才載入 MapLibre 與建物資料） ========
+// 建物：內政部國土測繪中心三維建物模型 → buildings3d.json（每個量體的輪廓與高度）
+const ML_JS = "https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js";
+let ml = null, ml3d = false, mlReady = null, mlMarkers = [];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const utciUrl = s => `utci_${slotLabel(s).replace(":", "")}.png`;
+function loadScript(src) {
+  return new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error(src)); document.head.appendChild(s); });
+}
+async function buildings3d() {
+  const J = await (await fetch("buildings3d.json")).json();
+  const n = J.c.length / 2, sc = J.scale, xy = new Float64Array(J.c.length);
+  let x = J.base[0], y = J.base[1];
+  for (let i = 0; i < n; i++) { x += J.c[2 * i]; y += J.c[2 * i + 1]; xy[2 * i] = x / sc; xy[2 * i + 1] = y / sc; }
+  const feats = []; let o = 0;
+  for (let k = 0; k < J.h.length; k++) {
+    const r = J.r[k], rings = [];
+    for (let j = 1; j <= r[0]; j++) {
+      const ring = [];
+      for (let t = 0; t < r[j]; t++) ring.push([xy[2 * (o + t)], xy[2 * (o + t) + 1]]);
+      ring.push(ring[0]); rings.push(ring); o += r[j];
+    }
+    feats.push({type: "Feature", properties: {h: J.h[k] / 10}, geometry: {type: "Polygon", coordinates: rings}});
+  }
+  return {type: "FeatureCollection", features: feats};
+}
+function init3D() {
+  if (mlReady) return mlReady;
+  mlReady = (async () => {
+    if (!window.maplibregl) await loadScript(ML_JS);
+    const gj = await buildings3d();
+    const [[la0, lo0], [la1, lo1]] = D.bounds, dark = css("--bg") === "#121615";
+    const c = map.getCenter();
+    ml = new maplibregl.Map({container: "map3d", attributionControl: false, center: [c.lng, c.lat], zoom: map.getZoom() - 1,
+      pitch: 55, bearing: -17, maxPitch: 75, minZoom: 12, maxZoom: 19,
+      maxBounds: [[lo0 - 0.02, la0 - 0.02], [lo1 + 0.02, la1 + 0.02]],
+      style: {version: 8, sources: {}, layers: [{id: "bg", type: "background", paint: {"background-color": css("--mapbg") || "#dfe4e2"}}]}});
+    ml.addControl(new maplibregl.NavigationControl({showZoom: true, visualizePitch: true}), "top-right");
+    await new Promise(r => ml.once("load", r));
+    ml.addSource("utci", {type: "image", url: utciUrl(state.slot), coordinates: [[lo0, la1], [lo1, la1], [lo1, la0], [lo0, la0]]});
+    ml.addLayer({id: "utci", type: "raster", source: "utci", paint: {"raster-opacity": 0.8, "raster-resampling": "nearest", "raster-fade-duration": 0}});
+    ml.addSource("bld", {type: "geojson", data: gj});
+    ml.addLayer({id: "bld", type: "fill-extrusion", source: "bld", paint: {
+      "fill-extrusion-color": ["interpolate", ["linear"], ["get", "h"], 0, dark ? "#3c4542" : "#e6ebe9", 60, dark ? "#6f7b77" : "#b4bfbb"],
+      "fill-extrusion-height": 0, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.92}});
+    ml.addSource("route", {type: "geojson", data: {type: "FeatureCollection", features: []}});
+    const line = (id, dash) => ml.addLayer({id, type: "line", source: "route", filter: ["==", ["get", "dash"], dash],
+      layout: {"line-cap": "round", "line-join": "round"},
+      paint: Object.assign({"line-color": ["get", "color"], "line-width": ["get", "w"], "line-opacity": ["get", "op"]}, dash ? {"line-dasharray": [2, 1.6]} : {})});
+    line("route-solid", 0); line("route-dash", 1);
+    ml.on("click", e => { if (!IMM.on) setPoint(state.pick, e.lngLat.lat, e.lngLat.lng, null); });
+    immHook();
+  })();
+  return mlReady;
+}
+function grow() {
+  const dur = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1200, t0 = performance.now();
+  const step = now => {
+    const t = dur ? Math.min((now - t0) / dur, 1) : 1, k = 1 - Math.pow(1 - t, 3);      // 建物從地面「長」出來
+    ml.setPaintProperty("bld", "fill-extrusion-height", ["*", ["get", "h"], k]);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function sync3D() {       // 把平面地圖上的路線、起終點、借還車站、號誌點同步到 3D 地圖
+  if (!ml3d || !ml || !ml.getSource("route")) return;
+  ml.getSource("utci").updateImage({url: utciUrl(state.slot)});
+  const feats = [];
+  for (const l of routeLayers) {
+    const o = l.options; let ll = l.getLatLngs(); if (!ll.length) continue;
+    if (Array.isArray(ll[0])) ll = ll.flat();
+    feats.push({type: "Feature", properties: {color: o.color, w: o.weight, op: o.opacity ?? 1, dash: o.dashArray ? 1 : 0},
+      geometry: {type: "LineString", coordinates: ll.map(p => [p.lng, p.lat])}});
+  }
+  ml.getSource("route").setData({type: "FeatureCollection", features: feats});
+  mlMarkers.forEach(m => m.remove()); mlMarkers = [];
+  const addM = (p, html, anchor) => {
+    const el = document.createElement("div"); el.innerHTML = html;
+    mlMarkers.push(new maplibregl.Marker({element: el.firstElementChild, anchor}).setLngLat([p.lng, p.lat]).addTo(ml));
+  };
+  sigLayer.eachLayer(m => { const ic = m.options.icon && m.options.icon.options; if (ic && ic.html) addM(m.getLatLng(), ic.html, "center"); });
+  for (const k of ["mA", "mB"]) if (window[k]) addM(window[k].getLatLng(), window[k].options.icon.options.html, "bottom");
+}
+async function set3D(on) {
+  const btn = $("#b3d"), hint = $("#b3dHint");
+  const label = v => { btn.setAttribute("aria-pressed", v); btn.textContent = `3D 建物：${v ? "開" : "關"}`; };
+  if (on) {
+    label(true); hint.textContent = "載入 3D 建物中…";
+    $("#map3d").hidden = false;
+    try { await init3D(); }
+    catch (e) {
+      mlReady = null; $("#map3d").hidden = true; label(false); hint.textContent = "3D 載入失敗";
+      toast("3D 地圖載入失敗（瀏覽器可能不支援 WebGL）", 5000); return;
+    }
+    ml3d = true;
+    const c = map.getCenter();
+    ml.resize(); ml.jumpTo({center: [c.lng, c.lat], zoom: map.getZoom() - 1, pitch: 55, bearing: -17});
+    $("#map").style.visibility = "hidden";
+    sync3D(); grow();
+    hint.textContent = "建物高度：國土測繪中心三維建物（右鍵或雙指拖曳可旋轉）";
+  } else {
+    ml3d = false; label(false);
+    if (ml) { const c = ml.getCenter(); map.setView([c.lat, c.lng], ml.getZoom() + 1, {animate: false}); }
+    $("#map3d").hidden = true; $("#map").style.visibility = "";
+    map.invalidateSize({animate: false});
+    hint.textContent = "立體顯示建物高度（右鍵或雙指拖曳可旋轉）";
+  }
+}
+{ // 平面地圖更新時，3D 地圖跟著更新
+  const _draw = draw, _drawBike = drawBike, _setSlot = setSlot;
+  draw = function () { _draw(); sync3D(); $("#immGo").hidden = false; };
+  drawBike = function () { _drawBike(); sync3D(); $("#immGo").hidden = true; };
+  setSlot = function (s) { _setSlot(s); sync3D(); };
+}
+
+// ======== 沉浸式導航（2026-10-26 測試版）：3D 跟拍視角，模擬沿路線行走 ========
+// 畫面元素：建物（國土測繪中心）、車道與公園（OpenStreetMap）、樹（臺北市行道樹＋公園樹）、人行道與斑馬線（路網）
+// 路線依每段 UTCI 上色；紅燈依號誌時制停下來倒數
+const IMM = {on: false, play: false, spd: 8, t: 0, follow: true, last: 0, cb: null, was3d: false, heat: false,
+             gps: false, watch: null, gd: 0, dd: 0, off: 0, lastRe: 0, fix: null, lock: null, weak: false};
+const SPDS = [1, 4, 8, 16, 32];
+let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
+const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
+function sceneColors() {
+  const dark = css("--bg") === "#121615";
+  return dark ? {bg: "#1a1d2b", park: "#1f3b33", road: "#2c3146", walk: "#3a4058", xing: "#c9cde8", b0: "#3d4470", b1: "#5a6296", leaf: "#2f7a5c", trunk: "#5b4a3a"}
+              : {bg: "#e9ebf3", park: "#bfe3cf", road: "#c3c8dc", walk: "#f6f7fb", xing: "#ffffff", b0: "#d3d6ee", b1: "#9da3d4", leaf: "#5fae86", trunk: "#8a6f55"};
+}
+function decLine(a, sc) { const out = []; let x = 0, y = 0; for (let i = 0; i < a.length; i += 2) { x += a[i]; y += a[i + 1]; out.push([x / sc, y / sc]); } return out; }
+async function scene3d() {
+  if (SCN) return SCN;
+  const J = await (await fetch("scene3d.json")).json(), sc = J.scale;
+  const roads = {type: "FeatureCollection", features: J.roads.map(([w, a]) => ({type: "Feature", properties: {w}, geometry: {type: "LineString", coordinates: decLine(a, sc)}}))};
+  const parks = {type: "FeatureCollection", features: J.parks.map(a => { const r = decLine(a, sc); if (r.length > 2) r.push(r[0]); return {type: "Feature", properties: {}, geometry: {type: "Polygon", coordinates: [r]}}; })};
+  const leaf = [], trunk = []; let x = 0, y = 0;
+  const poly = (lon, lat, r, n) => { const ring = []; for (let k = 0; k <= n; k++) { const a = k / n * 2 * Math.PI; ring.push([lon + r * Math.cos(a) / D.kx, lat + r * Math.sin(a) / D.ky]); } return [ring]; };
+  for (let i = 0; i < J.trees.length; i += 3) {
+    x += J.trees[i]; y += J.trees[i + 1]; const h = J.trees[i + 2], lon = x / sc, lat = y / sc;
+    const r = Math.min(Math.max(h * 0.28, 1.5), 4.5);
+    leaf.push({type: "Feature", properties: {b: h * 0.4, h}, geometry: {type: "Polygon", coordinates: poly(lon, lat, r, 8)}});
+    trunk.push({type: "Feature", properties: {h: h * 0.4}, geometry: {type: "Polygon", coordinates: poly(lon, lat, 0.25, 4)}});
+  }
+  // 人行道與斑馬線：直接用路網（每種一個 MultiLineString，畫得比較快）
+  const ml2 = k => ({type: "Feature", properties: {}, geometry: {type: "MultiLineString", coordinates: []}}), walk = ml2(), xing = ml2();
+  for (let e = 0; e < NE; e++) {
+    const k = D.ekind[e], seg = [[D.lon[D.eu[e]], D.lat[D.eu[e]]], [D.lon[D.ev[e]], D.lat[D.ev[e]]]];
+    if (k === 4 || k === 6) xing.geometry.coordinates.push(seg); else if (k <= 1 || k === 3) walk.geometry.coordinates.push(seg);
+  }
+  return SCN = {roads, parks, leaf: {type: "FeatureCollection", features: leaf}, trunk: {type: "FeatureCollection", features: trunk},
+                walk: {type: "FeatureCollection", features: [walk]}, xing: {type: "FeatureCollection", features: [xing]}};
+}
+async function addScene() {
+  if (ml.getLayer("imm-route")) return;
+  const S = await scene3d(), C = sceneColors(), src = (id, data) => ml.addSource(id, {type: "geojson", data});
+  for (const k of ["roads", "parks", "leaf", "trunk", "walk", "xing"]) src("s-" + k, S[k]);
+  src("imm-route", {type: "FeatureCollection", features: []}); src("imm-done", {type: "FeatureCollection", features: []});
+  const before = "bld";
+  ml.addLayer({id: "s-bg", type: "background", paint: {"background-color": C.bg}, layout: {visibility: "none"}}, "utci");
+  ml.addLayer({id: "s-parks", type: "fill", source: "s-parks", paint: {"fill-color": C.park}, layout: {visibility: "none"}}, before);
+  ml.addLayer({id: "s-roads", type: "line", source: "s-roads", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": C.road, "line-width": mPx(["get", "w"])}}, before);
+  ml.addLayer({id: "s-walk", type: "line", source: "s-walk", layout: {"line-cap": "round", visibility: "none"}, paint: {"line-color": C.walk, "line-width": mPx(2.5)}}, before);
+  ml.addLayer({id: "s-xing", type: "line", source: "s-xing", layout: {visibility: "none"}, paint: {"line-color": C.xing, "line-width": mPx(4), "line-dasharray": [0.25, 0.2]}}, before);
+  ml.addLayer({id: "imm-casing", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": "#1d2340", "line-width": mPx(6.5), "line-opacity": 0.75}});
+  ml.addLayer({id: "imm-route", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": ["get", "c"], "line-width": mPx(4.5)}});
+  ml.addLayer({id: "imm-done", type: "line", source: "imm-done", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": "#8a90a8", "line-width": mPx(4.6)}});
+  ml.addLayer({id: "s-trunk", type: "fill-extrusion", source: "s-trunk", layout: {visibility: "none"}, paint: {"fill-extrusion-color": C.trunk, "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": 0}});
+  ml.addLayer({id: "s-leaf", type: "fill-extrusion", source: "s-leaf", layout: {visibility: "none"}, paint: {"fill-extrusion-color": C.leaf, "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-opacity": 0.95}});
+  ["imm-casing", "imm-route", "imm-done"].forEach(id => ml.moveLayer(id));   // 路線畫在建物與樹上面，被擋住也看得到
+}
+const IMM_LAYERS = ["s-bg", "s-parks", "s-roads", "s-walk", "s-xing", "imm-casing", "imm-route", "imm-done", "s-trunk", "s-leaf"];
+function immStyle(on) {
+  const C = sceneColors();
+  IMM_LAYERS.forEach(id => ml.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
+  ["route-solid", "route-dash"].forEach(id => ml.setLayoutProperty(id, "visibility", on ? "none" : "visible"));
+  mlMarkers.forEach(m => m.getElement().style.display = on ? "none" : "");
+  ml.setLayoutProperty("utci", "visibility", on && !IMM.heat ? "none" : "visible");
+  ml.setPaintProperty("utci", "raster-opacity", on ? 0.55 : 0.8);
+  ml.setPaintProperty("bld", "fill-extrusion-color", on ? ["interpolate", ["linear"], ["get", "h"], 0, C.b0, 60, C.b1]
+    : ["interpolate", ["linear"], ["get", "h"], 0, css("--bg") === "#121615" ? "#3c4542" : "#e6ebe9", 60, css("--bg") === "#121615" ? "#6f7b77" : "#b4bfbb"]);
+  ml.setPaintProperty("bld", "fill-extrusion-opacity", on ? 0.88 : 0.92);
+}
+// 路線 → 時間軸：每段走路時間＋紅燈停等
+function immBuild(m, s) {
+  const P = m.path, cum = [0];
+  m.segs.forEach((g, i) => cum.push(cum[i] + g.l));
+  const tl = []; let t = 0;
+  m.segs.forEach((g, i) => {
+    const w = g.wait ? g.wait.sec : (g.xwait || 0);
+    if (w > 0) { tl.push({wait: w, d: cum[i], t0: t, t1: t + w, i}); t += w; }
+    tl.push({d0: cum[i], d1: cum[i + 1], t0: t, t1: t + g.l / SPEED, i}); t += g.l / SPEED;
+  });
+  // 轉彎提示：把路線說明的每一步對到路線上的位置
+  const st = steps(m, s), man = []; let pi = 0;
+  for (const x of st) {
+    if (x.wait || x.xing) {
+      let i = pi; while (i < m.segs.length && !(x.wait ? m.segs[i].wait : (m.segs[i].xwait && xBase[m.segs[i].e] >= 5))) i++;
+      if (i >= m.segs.length) continue; pi = i; man.push({...x, d: cum[i]});
+    } else {
+      let i = P.indexOf(x.nodes[0], pi); if (i < 0) i = pi; pi = i; man.push({...x, d: cum[i]});
+    }
+  }
+  return {m, s, P, cum, tl, T: t, L: cum[cum.length - 1], man};
+}
+function immPos(d) {
+  const R = immM, c = R.cum; let i = 0, lo = 0, hi = c.length - 2;
+  d = Math.min(Math.max(d, 0), R.L);
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (c[mid] <= d) { i = mid; lo = mid + 1; } else hi = mid - 1; }
+  i = Math.min(i, R.P.length - 2);
+  const a = R.P[i], b = R.P[i + 1], f = c[i + 1] > c[i] ? (d - c[i]) / (c[i + 1] - c[i]) : 0;
+  return {lon: D.lon[a] + (D.lon[b] - D.lon[a]) * f, lat: D.lat[a] + (D.lat[b] - D.lat[a]) * f, i};
+}
+function immState(t) {   // 時間 t（秒）→ 位置與狀態
+  const R = immM; t = Math.min(Math.max(t, 0), R.T);
+  let k = R.tl.findIndex(p => t < p.t1); if (k < 0) k = R.tl.length - 1;
+  const p = R.tl[k];
+  if (p.wait) return {d: p.d, waitLeft: p.t1 - t, seg: p.i};
+  return {d: p.d0 + (p.d1 - p.d0) * Math.min((t - p.t0) / Math.max(p.t1 - p.t0, 1e-6), 1), waitLeft: 0, seg: p.i};
+}
+const brg = (p, q) => Math.atan2((q.lon - p.lon) * D.kx, (q.lat - p.lat) * D.ky) * 180 / Math.PI;
+const arrowOf = x => x.wait ? "燈" : x.xing ? "⇄" : x.turn === "左轉" ? "←" : x.turn === "右轉" ? "→" : x.turn === "迴轉" ? "↶" : "↑";
+const fmtD = m => m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.max(Math.round(m / 5) * 5, 0)} m`;
+const clock = sec => { const m0 = state.slot * 30 + Math.round(sec / 60); return `${String(Math.floor(m0 / 60) % 24).padStart(2, "0")}:${String(m0 % 60).padStart(2, "0")}`; };
+function immFrame(now) {
+  if (!IMM.on) return;
+  const dt = IMM.last ? Math.min((now - IMM.last) / 1000, 0.25) : 0; IMM.last = now;
+  if (IMM.gps) IMM.dd += (IMM.gd - IMM.dd) * Math.min(1, dt * 2);   // 位置平滑移動，不會一格一格跳
+  else if (IMM.play) { IMM.t += dt * IMM.spd; if (IMM.t >= immM.T) { IMM.t = immM.T; immSetPlay(false); } }
+  immRender(dt);
+  requestAnimationFrame(immFrame);
+}
+function immRender(dt) {
+  const R = immM, S = IMM.gps ? immGpsState() : immState(IMM.t), pos = immPos(S.d), ahead = immPos(S.d + 25), back = immPos(S.d - 3);
+  const tNow = IMM.gps ? immTimeAt(S.d) : IMM.t, done = IMM.gps ? R.L - S.d < 12 : IMM.t >= R.T;
+  let b = S.d + 25 <= R.L ? brg(pos, ahead) : brg(back, pos);
+  if (IMM.cb == null) IMM.cb = b;
+  const diff = ((b - IMM.cb + 540) % 360) - 180; IMM.cb += diff * Math.min(1, dt * 2.5 || 1);   // 鏡頭轉向平滑
+  immMk.setLngLat([pos.lon, pos.lat]).setRotation(b);
+  ml.getSource("imm-done").setData({type: "Feature", properties: {}, geometry: {type: "LineString",
+    coordinates: R.P.slice(0, pos.i + 1).map(n => [D.lon[n], D.lat[n]]).concat([[pos.lon, pos.lat]])}});
+  $("#immSv").href = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${pos.lat.toFixed(6)},${pos.lon.toFixed(6)}&heading=${Math.round((b + 360) % 360)}`;
+  if (IMM.follow) ml.jumpTo({center: [pos.lon, pos.lat], bearing: IMM.cb, pitch: 60, zoom: 19.2, padding: {top: Math.round(ml.getContainer().clientHeight * 0.42), bottom: 0, left: 0, right: 0}});
+  // 上方提示
+  const ban = $("#immBan"); let nx = R.man.findIndex(x => x.d > S.d + 0.5);
+  if (done) { ban.className = "ban"; $("#immAr").textContent = "終"; $("#immD").textContent = "抵達"; $("#immS").textContent = state.B.name.startsWith("地圖上") ? "終點" : state.B.name; $("#immThen").hidden = true; }
+  else if (S.waitLeft > 0) {
+    const w = R.man.find(x => x.wait && Math.abs(x.d - S.d) < 0.6);
+    ban.className = "ban wait"; $("#immAr").textContent = "燈"; $("#immD").textContent = `等紅燈 ${Math.ceil(S.waitLeft)} 秒`;
+    $("#immS").textContent = w ? w.text : "號誌路口"; $("#immThen").hidden = true;
+  } else {
+    ban.className = "ban";
+    const x = nx >= 0 ? R.man[nx] : null;
+    if (!x) { $("#immAr").textContent = "終"; $("#immD").textContent = fmtD(R.L - S.d); $("#immS").textContent = "抵達終點"; }
+    else {
+      $("#immAr").textContent = arrowOf(x); $("#immD").textContent = fmtD(x.d - S.d);
+      $("#immS").textContent = x.wait ? `${x.text}，約等 ${x.sec} 秒` : x.xing ? x.text : `${x.turn}，${x.lab === "斑馬線" ? "走斑馬線" : "沿" + x.lab}`;
+    }
+    const y = nx >= 0 ? R.man[nx + 1] : null;
+    $("#immThen").hidden = !y || !x || y.d - x.d > 60;
+    if (y && x && y.d - x.d <= 60) $("#immThen").textContent = `接著 ${arrowOf(y)} ${y.wait ? "等紅燈" : y.xing ? "過馬路" : y.turn}`;
+  }
+  // 下方數字
+  const g = R.m.segs[Math.min(S.seg, R.m.segs.length - 1)], u = g.u;
+  $("#immEta").textContent = IMM.gps ? clockNow(R.T - tNow) : clock(R.T); $("#immMin").textContent = Math.max(Math.ceil((R.T - tNow) / 60), 0); $("#immM").textContent = Math.round(R.L - S.d);
+  const uc = $("#immU"); uc.textContent = `${u.toFixed(1)}°C${g.sun > 0.5 ? "・曬" : "・蔭"}`; uc.style.background = uColor(u); uc.style.color = u < 9 ? "#fff" : "#1d2523";
+  if (!IMM.gps && document.activeElement !== $("#immBar")) $("#immBar").value = Math.round(IMM.t / R.T * 1000);
+}
+function immSetPlay(p) { IMM.play = p; $("#immPlay").textContent = p ? "❚❚" : "▶"; $("#immPlay").setAttribute("aria-label", p ? "暫停" : "播放"); if (p && IMM.t >= immM.T) IMM.t = 0; }
+async function immEnter() {
+  const r = state.res; if (!r || r.bike) { toast("沉浸式導航目前只支援步行路線"); return; }
+  const m = state.sel === "cool" ? r.cool : r.fast;
+  IMM.was3d = ml3d;
+  if (!ml3d) await set3D(true);
+  if (!ml3d) return;
+  try { await addScene(); } catch (e) { toast("街景元素（scene3d.json）載入失敗", 5000); return; }
+  immLoad(m);
+  immStyle(true);
+  $("#panel").hidden = true; $("#legend").hidden = true; $("#imm").hidden = false;
+  $(".maplibregl-ctrl-top-right") && ($(".maplibregl-ctrl-top-right").style.display = "none");
+  Object.assign(IMM, {on: true, t: 0, follow: true, last: 0, cb: null}); $("#immRe").hidden = true;
+  immSetPlay(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+  requestAnimationFrame(immFrame);
+}
+function immLoad(m) {   // 把一條路線放進沉浸式畫面（第一次進入、偏離重新規劃都用這個）
+  immM = immBuild(m, state.slot);
+  ml.getSource("imm-route").setData({type: "FeatureCollection", features: m.segs.map(g => ({type: "Feature", properties: {c: uColor(g.u)},
+    geometry: {type: "LineString", coordinates: [[D.lon[g.a], D.lat[g.a]], [D.lon[g.b], D.lat[g.b]]]}}))});
+  if (!immMk) { const el = document.createElement("div"); el.className = "walker"; immMk = new maplibregl.Marker({element: el, rotationAlignment: "map", pitchAlignment: "map"}); }
+  immMk.setLngLat([D.lon[m.path[0]], D.lat[m.path[0]]]).addTo(ml);
+  immSig.forEach(x => x.remove()); immSig = [];
+  for (const x of immM.man) if (x.wait) {
+    const p = immPos(x.d), el = document.createElement("div"); el.className = "sig3d"; el.textContent = `燈 ${x.sec}s`;
+    immSig.push(new maplibregl.Marker({element: el, anchor: "bottom", offset: [0, -16]}).setLngLat([p.lon, p.lat]).addTo(ml));
+  }
+}
+async function immExit() {
+  immGpsOff();
+  IMM.on = false; IMM.play = false;
+  immMk && immMk.remove(); immSig.forEach(x => x.remove()); immSig = [];
+  immStyle(false);
+  $("#imm").hidden = true; $("#panel").hidden = false; $("#legend").hidden = false;
+  $(".maplibregl-ctrl-top-right") && ($(".maplibregl-ctrl-top-right").style.display = "");
+  ml.easeTo({pitch: 55, zoom: 16, padding: {top: 0, bottom: 0, left: 0, right: 0}, duration: 600});
+  if (!IMM.was3d) await set3D(false);
+}
+
+// ======== 跟隨定位（需要放在自己的 HTTPS 網站；claude.ai 頁面會擋定位） ========
+// 手機 GPS 位置 → 貼到路線上最近的點（優先找目前位置附近，避免跳到路線另一段）
+// 連續 3 次離路線超過約 30 m → 從目前位置重新規劃
+const OFF_M = 30, OFF_N = 3, RE_GAP = 10000;
+const clockNow = sec => { const d = new Date(Date.now() + sec * 1000); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+function immSnap(lat, lon, dPrev) {
+  const R = immM, x = (lon - D.lon0) * D.kx, y = (lat - D.lat0) * D.ky;
+  let best = null;
+  for (let i = 0; i + 1 < R.P.length; i++) {
+    const a = R.P[i], b = R.P[i + 1], ax = X[a], ay = Y[a], vx = X[b] - ax, vy = Y[b] - ay, L2 = vx * vx + vy * vy;
+    const f = L2 ? Math.min(Math.max(((x - ax) * vx + (y - ay) * vy) / L2, 0), 1) : 0;
+    const dist = Math.hypot(ax + vx * f - x, ay + vy * f - y), d = R.cum[i] + (R.cum[i + 1] - R.cum[i]) * f;
+    const score = dist + (d < dPrev - 40 || d > dPrev + 200 ? 25 : 0);   // 離上一個位置太遠的路段扣分
+    if (!best || score < best.score) best = {d, dist, score};
+  }
+  return best;
+}
+function immTimeAt(d) {   // 路線上距離 d 對應的預估時間（含之前的紅燈）
+  const tl = immM.tl;
+  for (const p of tl) if (!p.wait && d < p.d1) return p.t0 + Math.max(d - p.d0, 0) / SPEED;
+  return immM.T;
+}
+function immGpsState() {
+  const d = Math.min(Math.max(IMM.dd, 0), immM.L), c = immM.cum;
+  let i = 0; while (i + 2 < c.length && c[i + 1] <= d) i++;
+  return {d, waitLeft: 0, seg: i};
+}
+function immReroute(lat, lon) {
+  IMM.lastRe = Date.now(); IMM.off = 0;
+  const keep = state.sel;
+  setPoint("A", lat, lon, "目前位置");          // 會重算最涼／最快路線
+  const r = state.res; if (!r || r.bike) return;
+  state.sel = keep;
+  immLoad(keep === "cool" ? r.cool : r.fast);
+  mlMarkers.forEach(m => m.getElement().style.display = "none");
+  IMM.gd = IMM.dd = 0; IMM.cb = null;
+  toast("已從目前位置重新規劃路線");
+}
+function immFix(p) {
+  const {latitude: lat, longitude: lon, accuracy: acc} = p.coords;
+  IMM.fix = {lat, lon, acc};
+  if (!immRaw) { const el = document.createElement("div"); el.className = "gpsraw"; immRaw = new maplibregl.Marker({element: el}); }
+  immRaw.setLngLat([lon, lat]).addTo(ml);
+  if (acc > 60) { if (!IMM.weak) toast(`定位訊號弱（誤差約 ${Math.round(acc)} m），先不移動`, 4000); IMM.weak = true; return; }
+  IMM.weak = false;
+  const sn = immSnap(lat, lon, IMM.gd);
+  if (sn.dist > OFF_M + Math.min(acc, 20)) {
+    IMM.off++;
+    const first = IMM.gd === 0 && IMM.dd === 0;
+    if ((first || IMM.off >= OFF_N) && Date.now() - IMM.lastRe > RE_GAP) immReroute(lat, lon);
+    return;
+  }
+  IMM.off = 0;
+  IMM.gd = Math.max(sn.d, IMM.gd - 8);   // GPS 往回飄一點時不倒退
+  immRaw.getElement().style.display = sn.dist > 10 ? "" : "none";
+}
+function immGpsErr(e) {   // 拒絕權限才停止；暫時拿不到位置（室內、騎樓下）就繼續等
+  if (e.code === 1) { immGpsOff(); toast("沒有定位權限。若是在 claude.ai 裡開啟，請改用 GitHub Pages 版；手機請在設定允許瀏覽器使用位置。", 7000); return; }
+  if (!IMM.weak) toast("暫時拿不到定位，畫面先停在最後的位置", 4000);
+  IMM.weak = true;
+}
+async function immGpsOn() {
+  if (!navigator.geolocation) { toast("這個瀏覽器不支援定位"); return; }
+  immSetPlay(false);
+  Object.assign(IMM, {gps: true, gd: 0, dd: 0, off: 0, lastRe: 0, follow: true, cb: null, weak: false});
+  IMM.watch = navigator.geolocation.watchPosition(immFix, immGpsErr, {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000});
+  try { IMM.lock = await navigator.wakeLock.request("screen"); } catch (e) { IMM.lock = null; }   // 導航中不讓螢幕關掉（不支援就算了）
+  $("#immGps").setAttribute("aria-pressed", true); $("#immRe").hidden = true;
+  for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = true;
+  $("#immMode").textContent = "跟隨定位中（預估時間以步行 1.2 m/s 與紅燈平均等待計算）";
+}
+function immGpsOff() {
+  if (IMM.watch != null) navigator.geolocation.clearWatch(IMM.watch);
+  IMM.watch = null; IMM.gps = false;
+  try { IMM.lock && IMM.lock.release(); } catch (e) {} IMM.lock = null;
+  immRaw && immRaw.remove();
+  $("#immGps").setAttribute("aria-pressed", false);
+  for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = false;
+  $("#immMode").textContent = "模擬播放（依步行 1.2 m/s 與紅燈等待）";
+  IMM.t = immM ? immTimeAt(IMM.dd) : 0;
+}
+function immWire() {
+  $("#immGps").onclick = () => IMM.gps ? immGpsOff() : immGpsOn();
+  $("#immGo").onclick = immEnter; $("#immX").onclick = immExit;
+  $("#immPlay").onclick = () => immSetPlay(!IMM.play);
+  $("#immSpd").onclick = () => { IMM.spd = SPDS[(SPDS.indexOf(IMM.spd) + 1) % SPDS.length]; $("#immSpd").textContent = `${IMM.spd}×`; };
+  $("#immBar").oninput = ev => { IMM.t = ev.target.value / 1000 * immM.T; IMM.cb = null; };
+  $("#immRe").onclick = () => { IMM.follow = true; IMM.cb = null; $("#immRe").hidden = true; };
+  $("#immHeat").onclick = () => { IMM.heat = !IMM.heat; $("#immHeat").setAttribute("aria-pressed", IMM.heat); ml.setLayoutProperty("utci", "visibility", IMM.heat ? "visible" : "none"); };
+  // 街景：Google 條款不允許把街景嵌在非 Google 地圖旁邊 → 用官方 Maps URLs 連結開新分頁（網址在 immRender 更新）
+}
+function immHook() {   // 使用者拖曳地圖時暫停跟拍
+  ml.on("dragstart", () => { if (IMM.on) { IMM.follow = false; $("#immRe").hidden = false; } });
+  ml.on("zoomstart", e => { if (IMM.on && e.originalEvent) { IMM.follow = false; $("#immRe").hidden = false; } });
+  ml.on("rotatestart", e => { if (IMM.on && e.originalEvent) { IMM.follow = false; $("#immRe").hidden = false; } });
+}
+
+// ======== 啟動 ========
+(async function start() {
+  try { await load(); } catch (e) { $("#area").textContent = "資料載入失敗"; toast("路網資料載入失敗，請重新整理頁面。", 8000); return; }
+  $("#area").textContent = `${D.area}・UTCI ${D.day}${D.source ? "（" + D.source + "）" : ""}`;
+  const lg0 = D.legend[0][0], lg1 = D.legend[D.legend.length - 1][0], lpos = v => ((v - lg0) / (lg1 - lg0) * 100).toFixed(1);
+  const bar = D.legend.map(([v, c]) => `${c} ${lpos(v)}%`).join(","); $("#lgBar").style.background = `linear-gradient(90deg,${bar})`;
+  if (lg0 < 28) {   // 新版色階（−10～50°C）：刻度放在 UTCI 標準分級邊界，另標本研究的偏冷門檻
+    $("#lgTicks").style.position = "relative"; $("#lgTicks").style.height = "14px";
+    $("#lgTicks").innerHTML = [0, 9, 20, 32, 46].map(v => `<span style="position:absolute;left:${lpos(v)}%;transform:translateX(-50%)">${v}</span>`).join("");
+    $("#lgCats").innerHTML = [["&lt;9", "冷壓力（標準）"], ["9–26", "無熱壓力（標準）"], ["26–32", "中度熱壓力"], ["32–38", "強熱壓力"],
+      ["38–46", "非常強熱壓力"], ["&gt;46", "極端熱壓力"]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("") +
+      (D.cold_low != null ? `<span>&lt;${D.cold_low}</span><span>本研究的偏冷負荷（非標準冷壓力）</span>` : "");
+  }
+  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。`;
+  initMap();
+  wireSearch($("#qa"), $("#sa"), "A"); wireSearch($("#qb"), $("#sb"), "B");
+  $("#t").addEventListener("input", ev => setSlot(+ev.target.value));
+  $("#pickA").onclick = () => setPick("A"); $("#pickB").onclick = () => setPick("B");
+  $("#wMean").onclick = () => { state.mode = "mean"; $("#wMean").setAttribute("aria-pressed", true); $("#wWorst").setAttribute("aria-pressed", false); compute(); };
+  $("#b3d").onclick = () => set3D(!ml3d);
+  immWire();
+  $("#rain").onclick = async () => { const on = !state.rain; if (on && state.travel === "bike") await setTravel("walk"); setRain(on); if (on && !SH) return; compute(); };
+  $("#safe").onclick = () => { state.safe = !state.safe; $("#safe").setAttribute("aria-pressed", state.safe); $("#safe").textContent = `避開人車共道：${state.safe ? "開" : "關"}`; compute(); };
+  $("#wWorst").onclick = () => { state.mode = "worst"; $("#wWorst").setAttribute("aria-pressed", true); $("#wMean").setAttribute("aria-pressed", false); compute(); };
+  $("#cardCool").onclick = () => { state.sel = "cool"; $("#cardCool").setAttribute("aria-pressed", true); $("#cardFast").setAttribute("aria-pressed", false); redraw(); };
+  $("#cardFast").onclick = () => { state.sel = "fast"; $("#cardFast").setAttribute("aria-pressed", true); $("#cardCool").setAttribute("aria-pressed", false); redraw(); };
+  $("#swap").onclick = () => { if (!state.A || !state.B) return; const a = state.A, b = state.B; state.A = null; state.B = null; setPoint("A", b.lat, b.lon, b.name.startsWith("地圖上") ? null : b.name); setPoint("B", a.lat, a.lon, a.name.startsWith("地圖上") ? null : a.name); };
+  $("#tmWalk").onclick = () => setTravel("walk"); $("#tmBike").onclick = () => setTravel("bike");
+  $("#btNormal").onclick = () => setBikeType("一般車"); $("#btE").onclick = () => setBikeType("電輔車");
+  $("#toggleSteps").onclick = () => { const sh = $("#sheet"); sh.classList.toggle("collapsed"); $("#toggleSteps").textContent = sh.classList.contains("collapsed") ? "展開" : "收合"; };
+  $("#gps").onclick = () => {
+    if (!navigator.geolocation) { toast("這個瀏覽器不支援定位，請改點地圖選起點。"); return; }
+    navigator.geolocation.getCurrentPosition(p => { setPoint("A", p.coords.latitude, p.coords.longitude, "目前位置"); map.panTo([p.coords.latitude, p.coords.longitude]); },
+      () => toast("無法取得定位：在 claude.ai 頁面裡定位會被擋。請改點地圖或輸入地名選起點。", 5000), {enableHighAccuracy: true, timeout: 8000});
+  };
+  if (window.matchMedia("(max-width: 899px)").matches) { $("#sheet").classList.add("collapsed"); $("#toggleSteps").textContent = "展開"; }
+  setSlot(28);
+  // 範例：國北正門 → 大安森林公園，14:00
+  const pa = D.places.find(p => p[0].startsWith("國北教大正門")), pb = D.places.find(p => p[0].startsWith("大安森林公園"));
+  if (pa && pb) { state.A = null; setPoint("A", pa[1], pa[2], pa[0]); setPoint("B", pb[1], pb[2], pb[0]);
+    const fit = () => { map.invalidateSize({animate: false}); const desk = innerWidth >= 900;
+      map.fitBounds(L.latLngBounds([[pa[1], pa[2]], [pb[1], pb[2]]]), {animate: false, maxZoom: 16.5,
+        paddingTopLeft: desk ? [470, 40] : [30, 260], paddingBottomRight: desk ? [40, 40] : [30, 120]}); };
+    fit(); setTimeout(fit, 400); }
+})();
+</script>
+
+</body></html>
