@@ -150,6 +150,27 @@ img.utci-layer{image-rendering:pixelated}
   #sheet.collapsed #steps,#sheet.collapsed #about{display:none}
 }
 @media (prefers-reduced-motion: reduce){.leaflet-zoom-anim .leaflet-zoom-animated{transition:none}}
+/* ---- 圖層與設定面板 ---- */
+#layers{position:absolute;z-index:1250;top:max(10px,env(safe-area-inset-top,0px));left:max(16px,env(safe-area-inset-left,0px));width:min(380px,calc(100vw - 32px));max-height:calc(100% - 20px);display:flex;flex-direction:column;overflow:hidden}
+#layers[hidden]{display:none}
+.lyhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 6px;font-size:16px}
+.lyx{border:0;background:var(--bg);width:34px;height:34px;border-radius:50%;cursor:pointer;color:var(--ink)}
+.lylist{overflow:auto;padding:0 10px 12px;display:flex;flex-direction:column;gap:2px}
+.lysec{font-size:12px;color:var(--muted);padding:10px 6px 4px}
+.lyrow{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:8px 6px;border-radius:12px}
+.lyrow:hover{background:var(--bg)}
+.lyic{width:40px;height:40px;border-radius:10px;background:var(--bg);display:grid;place-items:center}
+.lyic svg,.lyBtnIc{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.lyBtnIc{width:16px;height:16px;vertical-align:-3px}
+.lyt{display:flex;flex-direction:column;min-width:0}
+.lyt b{font-weight:500;font-size:14px}
+.lyt small{color:var(--muted);font-size:12px;line-height:1.35}
+.sw{position:relative;width:48px;height:28px;border-radius:999px;border:0;background:var(--line);cursor:pointer;font-size:0;color:transparent;flex:none;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0 / .3);transition:left .15s}
+.sw[aria-pressed="true"]{background:var(--shade)}
+.sw[aria-pressed="true"]::after{left:23px}
+.rainmode #rain.sw[aria-pressed="true"]{background:var(--rain)}
+#lyOpen[aria-expanded="true"]{background:var(--shade-soft);color:var(--shade);border-color:var(--shade)}
 /* ---- 3D 建物（MapLibre；必要樣式內嵌，因為外部樣式表只允許 Google Fonts） ---- */
 #map3d{grid-area:1/1;height:100%;width:100%;background:var(--mapbg)}
 #map3d[hidden]{display:none!important}
@@ -239,26 +260,23 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
         <div class="seg" role="group" aria-label="點地圖設定">
           <button id="pickA" aria-pressed="false">點選起點</button><button id="pickB" aria-pressed="true">點選終點</button>
         </div>
-        <div class="seg" role="group" aria-label="紅燈等待">
-          <button id="wMean" aria-pressed="true" title="隨機抵達路口的平均等待">紅燈平均</button><button id="wWorst" aria-pressed="false" title="每個燈都剛好錯過">最壞</button>
-        </div>
-      </div>
-      <div class="row">
-        <button class="iconbtn" id="rain" aria-pressed="false" title="下雨時：在總時間不超過最快路線 1.3 倍內，找估算淋雨時間最少的步行路線（騎樓、有頂通道優先；等紅燈算淋雨）">雨天模式：關</button>
-        <span class="hint" id="rainHint">找騎樓多、少淋雨的步行路線</span>
-      </div>
-      <div class="row">
-        <button class="iconbtn" id="safe" aria-pressed="false" title="沒有人行道的路段（人車共道）成本加重 1.5 倍">避開人車共道：關</button>
-        <span class="hint" id="safeHint">路線偏向有人行道的路</span>
-      </div>
-      <div class="row">
-        <button class="iconbtn" id="b3d" aria-pressed="false" title="用國土測繪中心三維建物模型，以立體視角顯示建物高度">3D 建物：關</button>
-        <button class="iconbtn" id="photo" aria-pressed="false" title="平面地圖與 3D 鳥瞰的底圖改用內政部國土測繪中心正射航照（需要網路；沉浸式導航不使用）">航照：關</button>
-        <button class="iconbtn" id="lmk" aria-pressed="true" title="顯示捷運出口、公園、醫院、超商等地標（OpenStreetMap）；放大地圖會顯示更多">地標：開</button>
-        <span class="hint" id="b3dHint">立體顯示建物高度（右鍵或雙指拖曳可旋轉）</span>
+        <button class="iconbtn" id="lyOpen" aria-expanded="false" aria-controls="layers" title="圖層與路線設定"><svg class="lyBtnIc" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg> 圖層</button>
       </div>
     </section>
-
+    <section id="layers" class="card" hidden aria-label="圖層與路線設定">
+      <div class="lyhead"><b>圖層與設定</b><button class="lyx" id="lyClose" aria-label="關閉">✕</button></div>
+      <div class="lylist">
+        <div class="lysec">地圖圖層</div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10"/><circle cx="12" cy="17" r="4"/><path d="M16 6h3M16 10h3"/></svg></span><span class="lyt"><b>UTCI 熱度圖</b><small>地面顯示體感溫度（SOLWEIG 模擬）</small></span><button class="sw" id="heatLy" aria-pressed="true">熱度圖：開</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span class="lyt"><b>3D 建物</b><small id="b3dHint">立體顯示建物高度（右鍵或雙指拖曳可旋轉）</small></span><button class="sw" id="b3d" aria-pressed="false" title="用國土測繪中心三維建物模型，以立體視角顯示建物高度">3D 建物：關</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg></span><span class="lyt"><b>航照底圖</b><small>國土測繪中心正射航照；需要網路，沉浸式導航不使用</small></span><button class="sw" id="photo" aria-pressed="false">航照：關</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></svg></span><span class="lyt"><b>地標</b><small>捷運出口、公園、醫院、超商等（OpenStreetMap）；放大會顯示更多</small></span><button class="sw" id="lmk" aria-pressed="true">地標：開</button></div>
+        <div class="lysec">路線設定</div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15a4 4 0 1 1 1-7.9A5 5 0 0 1 18 9a3 3 0 0 1 0 6z"/><path d="M9 18l-1 3M13 18l-1 3M17 18l-1 3"/></svg></span><span class="lyt"><b>雨天模式</b><small id="rainHint">找騎樓多、少淋雨的步行路線</small></span><button class="sw" id="rain" aria-pressed="false" title="下雨時：在總時間不超過最快路線 1.3 倍內，找估算淋雨時間最少的步行路線（騎樓、有頂通道優先；等紅燈算淋雨）">雨天模式：關</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><path d="M12 7v7M9 21l3-7 3 7M8 11h8"/></svg></span><span class="lyt"><b>避開人車共道</b><small id="safeHint">路線偏向有人行道的路</small></span><button class="sw" id="safe" aria-pressed="false" title="沒有人行道的路段（人車共道）成本加重 1.5 倍">避開人車共道：關</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2" width="8" height="18" rx="3"/><circle cx="12" cy="7" r="1.5"/><circle cx="12" cy="12" r="1.5"/><path d="M12 20v2"/></svg></span><span class="lyt"><b>紅燈等待</b><small>平均＝隨機抵達路口；最壞＝每個燈都剛好錯過</small></span><div class="seg" role="group" aria-label="紅燈等待"><button id="wMean" aria-pressed="true">平均</button><button id="wWorst" aria-pressed="false">最壞</button></div></div>
+      </div>
+    </section>
     <section id="sheet" class="card" aria-label="路線結果">
       <div id="cards">
         <button class="rc cool" id="cardCool" aria-pressed="true"><span class="k"><i></i>最涼路線</span><span class="v" id="vCool">–</span><span class="m" id="mCool"></span></button>
@@ -701,10 +719,11 @@ function steps(m, s) {
 // 正射航照：內政部國土測繪中心「國土測繪圖資服務雲」WMTS（使用條款：需附來源、不得大量下載）
 const PHOTO_URL = "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}", PHOTO_Z = 19;
 let photoOn = false, photoTiles = null, bldPng = null;
+const heatOn = () => $("#heatLy").getAttribute("aria-pressed") !== "false";
 function setPhoto(on) {
   photoOn = on; $("#photo").setAttribute("aria-pressed", on); $("#photo").textContent = `航照：${on ? "開" : "關"}`;
-  if (on) { photoTiles.addTo(map); photoTiles.bringToBack(); bldPng.setOpacity(0); utciLayer.setOpacity(0.5); }
-  else { photoTiles.remove(); bldPng.setOpacity(1); utciLayer.setOpacity(0.78); }
+  if (on) { photoTiles.addTo(map); photoTiles.bringToBack(); bldPng.setOpacity(0); utciLayer.setOpacity(heatOn() ? 0.5 : 0); }
+  else { photoTiles.remove(); bldPng.setOpacity(1); utciLayer.setOpacity(heatOn() ? 0.78 : 0); }
   if (ml) mlPhoto();
 }
 function mlPhoto(imm = IMM.on) {   // 3D 鳥瞰：航照當地面；沉浸式（第一人稱）不用航照（10/26 實測：視角低時模糊、圖磚浮水印很明顯）
@@ -1110,7 +1129,7 @@ function init3D() {
     ml.addSource("photo", {type: "raster", tiles: [PHOTO_URL], tileSize: 256, maxzoom: PHOTO_Z, attribution: "航照：內政部國土測繪中心"});
     ml.addLayer({id: "photo", type: "raster", source: "photo", layout: {visibility: photoOn ? "visible" : "none"}, paint: {"raster-fade-duration": 0}});
     ml.on("error", ev => { if (ev.sourceId === "photo" && !ml._photoWarned) { ml._photoWarned = true; toast("3D 航照載入失敗（國土測繪中心服務連不上，或不允許跨網站讀取）", 5000); } });
-    ml.addLayer({id: "utci", type: "raster", source: "utci", paint: {"raster-opacity": photoOn ? 0.45 : 0.8, "raster-resampling": "nearest", "raster-fade-duration": 0}});
+    ml.addLayer({id: "utci", type: "raster", source: "utci", layout: {visibility: heatOn() ? "visible" : "none"}, paint: {"raster-opacity": photoOn ? 0.45 : 0.8, "raster-resampling": "nearest", "raster-fade-duration": 0}});
     ml.addSource("bld", {type: "geojson", data: gj});
     ml.addLayer({id: "bld", type: "fill-extrusion", source: "bld", paint: {
       "fill-extrusion-color": ["interpolate", ["linear"], ["get", "h"], 0, dark ? "#3c4542" : "#e6ebe9", 60, dark ? "#6f7b77" : "#b4bfbb"],
@@ -1217,7 +1236,7 @@ function sunPos(date, lat = 25.026, lon = 121.543) {
 let WX = null;
 async function loadWeather() { try { const r = await fetch("weather.json"); if (r.ok) WX = await r.json(); } catch (e) { WX = null; } showWx(); }
 function wxAt(date) {   // 臺北時間的整點預報
-  if (!WX) return null;
+  if (!WX || (typeof D !== "undefined" && D && WX.day && WX.day !== D.day)) return null;   // 預報日期和 UTCI 資料日期不同（例：2020-07-24 展示版）就不顯示
   const h = new Date(date.getTime() + 8 * 3600000).getUTCHours();
   return WX.hours.find(x => x.h === h) || null;
 }
@@ -1286,7 +1305,9 @@ function immClock() {   // 沉浸式畫面現在代表的時刻
   const [h, mi] = slotLabel(state.slot).split(":").map(Number);
   return new Date(tpTime(h, mi).getTime() + (IMM.t || 0) * 1000);
 }
-function tpTime(h, mi) {   // 今天（臺北時間）h:mi，不受手機時區設定影響
+function tpTime(h, mi) {   // 今天（臺北時間）h:mi，不受手機時區設定影響；歷史日資料（沒有 source）用資料那一天的太陽位置
+  const hist = typeof D !== "undefined" && D && !D.source && /^\d{4}-\d\d-\d\d$/.test(D.day || "");
+  if (hist) { const [y, m, d] = D.day.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d, h - 8, mi)); }
   const t = new Date(Date.now() + 8 * 3600000);
   return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate(), h - 8, mi));
 }
@@ -1626,6 +1647,16 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
   $("#wMean").onclick = () => { state.mode = "mean"; $("#wMean").setAttribute("aria-pressed", true); $("#wWorst").setAttribute("aria-pressed", false); compute(); };
   $("#b3d").onclick = () => set3D(!ml3d);
   $("#photo").onclick = () => setPhoto(!photoOn);
+  // 圖層面板：開關、Esc 或點面板外面關閉
+  const lyShow = on => { $("#layers").hidden = !on; $("#lyOpen").setAttribute("aria-expanded", on); if (on) $("#lyClose").focus(); };
+  $("#lyOpen").onclick = () => lyShow($("#layers").hidden); $("#lyClose").onclick = () => { lyShow(false); $("#lyOpen").focus(); };
+  document.addEventListener("keydown", ev => { if (ev.key === "Escape" && !$("#layers").hidden) { lyShow(false); $("#lyOpen").focus(); } });
+  document.addEventListener("pointerdown", ev => { if (!$("#layers").hidden && !ev.target.closest("#layers,#lyOpen")) lyShow(false); });
+  $("#heatLy").onclick = () => {
+    const on = $("#heatLy").getAttribute("aria-pressed") !== "true"; $("#heatLy").setAttribute("aria-pressed", on); $("#heatLy").textContent = `熱度圖：${on ? "開" : "關"}`;
+    utciLayer.setOpacity(on ? (photoOn ? 0.5 : 0.78) : 0); $("#legend").style.opacity = on ? "" : "0.4";
+    if (ml && ml.getLayer("utci") && !IMM.on) ml.setLayoutProperty("utci", "visibility", on ? "visible" : "none");
+  };
   $("#lmk").onclick = () => { lmkOn = !lmkOn; $("#lmk").setAttribute("aria-pressed", lmkOn); $("#lmk").textContent = `地標：${lmkOn ? "開" : "關"}`; drawLandmarks(); immLmkShow(true); };
   immWire();
   $("#rain").onclick = async () => { const on = !state.rain; if (on && state.travel === "bike") await setTravel("walk"); setRain(on); if (on && !SH) return; compute(); };
