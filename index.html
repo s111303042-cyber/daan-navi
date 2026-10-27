@@ -127,6 +127,11 @@ img.utci-layer{image-rendering:pixelated}
 #legend .ticks{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums;color:var(--muted)}
 #legend .cats{display:grid;grid-template-columns:auto 1fr;gap:1px 6px;color:var(--muted)}
 #toast{position:absolute;left:50%;transform:translateX(-50%);top:calc(max(10px,env(safe-area-inset-top,0px)) + 6px);z-index:1300;background:var(--ink);color:var(--panel);padding:8px 14px;border-radius:999px;font-size:13px;max-width:min(92vw,520px);text-align:center}
+.stl{width:0;height:0;pointer-events:none}
+.stl span{position:absolute;left:0;top:0;white-space:nowrap;font-size:12px;font-weight:600;letter-spacing:.5px;color:#3a4046;text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff,0 0 4px #fff}
+.stl.lane span{font-size:11px;font-weight:500;color:#5b6168}
+.stl.dk span{color:#e6e9ec;text-shadow:0 0 2px #000,0 0 3px #000,0 0 4px #000}
+.stl.dk.lane span{color:#b9bec4}
 .pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:grid;place-items:center;border:2.5px solid #fff;box-shadow:0 2px 6px rgb(0 0 0 / .35)}
 .pin span{transform:rotate(45deg);color:#fff;font-weight:700;font-size:12px}
 .pin.a{background:#2a3140}.pin.b{background:#c2410c}
@@ -316,8 +321,10 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
       <div class="lylist">
         <div class="lysec">地圖圖層</div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10"/><circle cx="12" cy="17" r="4"/><path d="M16 6h3M16 10h3"/></svg></span><span class="lyt"><b>UTCI 熱度圖</b><small>地面顯示體感溫度（SOLWEIG 模擬）</small></span><button class="sw" id="heatLy" aria-pressed="true">熱度圖：開</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21L10 3M17 21L14 3M12 5v2M12 11v2M12 17v2"/></svg></span><span class="lyt"><b>街道與路名</b><small>OpenStreetMap 道路寬度＋路網的路名、斑馬線；不需額外網路</small></span><button class="sw" id="street" aria-pressed="true">街道：開</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span class="lyt"><b>3D 建物</b><small id="b3dHint">立體顯示建物高度（右鍵或雙指拖曳可旋轉）</small></span><button class="sw" id="b3d" aria-pressed="false" title="用國土測繪中心三維建物模型，以立體視角顯示建物高度">3D 建物：關</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg></span><span class="lyt"><b>航照底圖</b><small>國土測繪中心正射航照；需要網路，沉浸式導航不使用</small></span><button class="sw" id="photo" aria-pressed="false">航照：關</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span><span class="lyt"><b>電子地圖底圖</b><small>國土測繪中心「臺灣通用電子地圖」（街道、路名、地標）；需要網路，和航照二選一</small></span><button class="sw" id="emap" aria-pressed="false">電子地圖：關</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></svg></span><span class="lyt"><b>地標</b><small>捷運出口、公園、醫院、超商等（OpenStreetMap）；放大會顯示更多</small></span><button class="sw" id="lmk" aria-pressed="true">地標：開</button></div>
         <div class="lysec">路線設定</div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 15a4 4 0 1 1 1-7.9A5 5 0 0 1 18 9a3 3 0 0 1 0 6z"/><path d="M9 18l-1 3M13 18l-1 3M17 18l-1 3"/></svg></span><span class="lyt"><b>雨天模式</b><small id="rainHint">找騎樓多、少淋雨的步行路線</small></span><button class="sw" id="rain" aria-pressed="false" title="下雨時：在總時間不超過最快路線 1.3 倍內，找估算淋雨時間最少的步行路線（騎樓、有頂通道優先；等紅燈算淋雨）">雨天模式：關</button></div>
@@ -865,17 +872,96 @@ function steps(m, s) {
 const PHOTO_URL = "https://wmts.nlsc.gov.tw/wmts/PHOTO2/default/GoogleMapsCompatible/{z}/{y}/{x}", PHOTO_Z = 19;
 let photoOn = false, photoTiles = null, bldPng = null;
 const heatOn = () => $("#heatLy").getAttribute("aria-pressed") !== "false";
+// 電子地圖：內政部國土測繪中心「臺灣通用電子地圖」EMAP（WMTS 免申請，需附來源），和航照二選一
+const EMAP_URL = "https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}", EMAP_Z = 18;
+let emapOn = false, emapTiles = null, streetOn = true;
+const swTxt = (id, name, on) => { $(id).setAttribute("aria-pressed", on); $(id).textContent = `${name}：${on ? "開" : "關"}`; };
+function base2D() {   // 有底圖（航照／電子地圖）時，平面建物圖拿掉、熱度圖變淡
+  const bm = photoOn || emapOn;
+  bldPng.setOpacity(bm ? 0 : 1); utciLayer.setOpacity(heatOn() ? (bm ? 0.5 : 0.78) : 0);
+}
 function setPhoto(on) {
-  photoOn = on; $("#photo").setAttribute("aria-pressed", on); $("#photo").textContent = `航照：${on ? "開" : "關"}`;
-  if (on) { photoTiles.addTo(map); photoTiles.bringToBack(); bldPng.setOpacity(0); utciLayer.setOpacity(heatOn() ? 0.5 : 0); }
-  else { photoTiles.remove(); bldPng.setOpacity(1); utciLayer.setOpacity(heatOn() ? 0.78 : 0); }
-  if (ml) mlPhoto();
+  if (on && emapOn) setEmap(false);
+  photoOn = on; swTxt("#photo", "航照", on);
+  if (on) { photoTiles.addTo(map); photoTiles.bringToBack(); } else photoTiles.remove();
+  base2D(); if (ml) mlPhoto(); else stLabels();
+}
+function setEmap(on) {
+  if (on && photoOn) setPhoto(false);
+  emapOn = on; swTxt("#emap", "電子地圖", on);
+  if (on) { emapTiles.addTo(map); emapTiles.bringToBack(); } else emapTiles.remove();
+  base2D(); if (ml) mlPhoto(); else stLabels();
 }
 function mlPhoto(imm = IMM.on) {   // 3D 鳥瞰：航照當地面；沉浸式（第一人稱）不用航照（10/26 實測：視角低時模糊、圖磚浮水印很明顯）
   if (!ml.getLayer("photo")) return;
-  const on = photoOn && !imm;
+  const on = photoOn && !imm, em = emapOn && !imm;
   ml.setLayoutProperty("photo", "visibility", on ? "visible" : "none");
-  ml.setPaintProperty("utci", "raster-opacity", on ? 0.45 : imm ? 0.55 : 0.8);
+  if (ml.getLayer("emap")) ml.setLayoutProperty("emap", "visibility", em ? "visible" : "none");
+  ml.setPaintProperty("utci", "raster-opacity", on || em ? 0.45 : imm ? 0.55 : 0.8);
+  mlStreetStyle(imm);
+}
+
+// ======== 街道與路名（10/27 使用者提議：3D 鳥瞰只看得到建物，看不出街道） ========
+// 道路＝沉浸式同一份 OpenStreetMap 道路中心線＋路型寬度（scene3d.json）；斑馬線、路名＝本研究路網
+// 熱度圖開著時只畫路緣白線（不蓋住路面上的熱度顏色）；熱度圖關掉時畫灰色路面＋公園＋斑馬線
+async function mlStreets() {
+  if (ml.getLayer("st-roads")) return;
+  const S = await scene3d(); if (ml.getLayer("st-roads")) return;
+  for (const k of ["roads", "parks", "xing"]) if (!ml.getSource("s-" + k)) ml.addSource("s-" + k, {type: "geojson", data: S[k]});
+  ml.addLayer({id: "st-parks", type: "fill", source: "s-parks", paint: {"fill-color": "#a9d18e", "fill-opacity": 0.7}}, "utci");
+  ml.addLayer({id: "st-roads", type: "line", source: "s-roads", layout: {"line-cap": "round", "line-join": "round"}, paint: {"line-color": "#9aa1a8", "line-width": mPx(["get", "w"])}}, "bld");
+  ml.addLayer({id: "st-edge", type: "line", source: "s-roads", layout: {"line-join": "round"}, paint: {"line-color": "#ffffff", "line-width": 1.2, "line-gap-width": mPx(["get", "w"]), "line-opacity": 0.75}}, "bld");
+  ml.addLayer({id: "st-xing", type: "line", source: "s-xing", paint: {"line-color": "#f4f4f2", "line-width": mPx(4), "line-dasharray": [0.25, 0.2]}}, "bld");
+  mlStreetStyle();
+}
+function mlStreetStyle(imm = IMM.on) {
+  if (ml && ml.getLayer("st-roads")) {
+    const vis = streetOn && !imm && !emapOn, heat = heatOn(), night = css("--bg") === "#121615", C = sceneColors(night);
+    const v = (id, on) => ml.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    v("st-parks", vis && !heat && !photoOn); v("st-roads", vis && !photoOn); v("st-edge", vis && (heat || photoOn)); v("st-xing", vis && !heat && !photoOn);
+    ml.setPaintProperty("st-parks", "fill-color", C.park);
+    ml.setPaintProperty("st-roads", "line-color", heat ? "#ffffff" : night ? "#3a3e44" : "#a3a9af");
+    ml.setPaintProperty("st-roads", "line-opacity", heat ? 0.16 : 1);
+    ml.setPaintProperty("st-xing", "line-color", night ? "#8a8e96" : "#f4f4f2");
+    ml.setPaintProperty("st-edge", "line-opacity", photoOn ? 0.55 : 0.75);
+  }
+  stLabels(imm);
+}
+let STL = null, stMk = [];
+function stCands() {   // 路名候選：每條路每 250 m 格子取最長的一段（角度比較穩）
+  if (STL) return STL;
+  const tot = new Map(), best = new Map(), G = 250;
+  for (let e = 0; e < NE; e++) { const nm = D.names[D.ename[e]]; if (nm) tot.set(nm, (tot.get(nm) || 0) + D.elen[e]); }
+  for (let e = 0; e < NE; e++) {
+    const nm = D.names[D.ename[e]], k = D.ekind[e]; if (!nm || k === 4 || k === 6 || D.elen[e] < 12) continue;
+    const u = D.eu[e], w = D.ev[e], lon = (D.lon[u] + D.lon[w]) / 2, lat = (D.lat[u] + D.lat[w]) / 2;
+    const key = nm + "|" + Math.floor((lon - D.lon0) * D.kx / G) + "|" + Math.floor((lat - D.lat0) * D.ky / G), o = best.get(key);
+    if (!o || D.elen[e] > o.l) best.set(key, {nm, lon, lat, l: D.elen[e], u: [D.lon[u], D.lat[u]], w: [D.lon[w], D.lat[w]], lane: /巷|弄/.test(nm), pr: tot.get(nm)});
+  }
+  return STL = [...best.values()].filter(c => c.pr >= (c.lane ? 120 : 250)).sort((a, b) => a.lane - b.lane || b.pr - a.pr);
+}
+function stLabels(imm = IMM.on) {   // 依目前畫面挑路名（不重疊、同名路至少隔 260 px），平面與 3D 共用
+  stMk.forEach(m => m.remove()); stMk = [];
+  if (!streetOn || emapOn || imm || typeof D === "undefined" || !D || !map) return;
+  const is3 = ml3d && ml, z = is3 ? ml.getZoom() + 1 : map.getZoom();
+  if (z < 15) return;
+  const proj = is3 ? (p => ml.project(p)) : (p => map.latLngToContainerPoint([p[1], p[0]]));
+  const el = is3 ? ml.getContainer() : map.getContainer(), W = el.clientWidth, H = el.clientHeight;
+  const dk = css("--bg") === "#121615" && !photoOn, got = [], max = W < 600 ? 28 : 55;
+  for (const c of stCands()) {
+    if (got.length >= max) break;
+    if (c.lane && z < 17) continue;
+    const p = proj([c.lon, c.lat]); if (p.x < 24 || p.y < 40 || p.x > W - 24 || p.y > H - 24) continue;
+    const r = c.nm.length * (c.lane ? 5.6 : 6.2) + 6;
+    if (got.some(q => { const d = Math.hypot(q.x - p.x, q.y - p.y); return d < (q.r + r) * 0.72 || (q.nm === c.nm && d < 260); })) continue;
+    const a = proj(c.u), b = proj(c.w);
+    let ang = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI; if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
+    got.push({x: p.x, y: p.y, r, nm: c.nm});
+    const div = document.createElement("div"); div.className = `stl${c.lane ? " lane" : ""}${dk ? " dk" : ""}`;
+    const sp = document.createElement("span"); sp.textContent = c.nm; sp.style.transform = `translate(-50%,-50%) rotate(${ang.toFixed(1)}deg)`; div.appendChild(sp);
+    stMk.push(is3 ? new maplibregl.Marker({element: div, anchor: "center"}).setLngLat([c.lon, c.lat]).addTo(ml)
+                  : L.marker([c.lat, c.lon], {icon: L.divIcon({className: "", html: div.outerHTML, iconSize: [0, 0]}), interactive: false, keyboard: false}).addTo(map));
+  }
 }
 let map, utciLayer, routeLayers = [], sigLayer, mA, mB;
 function initMap() {
@@ -890,6 +976,8 @@ function initMap() {
   // 正射航照（內政部國土測繪中心 WMTS，開啟時才載入）
   photoTiles = L.tileLayer(PHOTO_URL, {maxNativeZoom: PHOTO_Z, maxZoom: 19, bounds: b.pad(0.25)});
   photoTiles.on("tileerror", () => { if (!photoTiles._warned) { photoTiles._warned = true; toast("航照圖磚載入失敗（國土測繪中心服務連不上）", 4500); } });
+  emapTiles = L.tileLayer(EMAP_URL, {maxNativeZoom: EMAP_Z, maxZoom: 19, bounds: b.pad(0.25)});
+  emapTiles.on("tileerror", () => { if (!emapTiles._warned) { emapTiles._warned = true; toast("電子地圖圖磚載入失敗（國土測繪中心服務連不上）", 4500); } });
   utciLayer = L.imageOverlay(`utci_${slotLabel(state.slot).replace(":", "")}.png`, b, {opacity: .78, className: "utci-layer"}).addTo(map);
   // 路網（細線，供辨識街道）
   const rd = L.canvas({padding: .3}), lines = {};
@@ -902,6 +990,7 @@ function initMap() {
   L.polyline(lines.lane, {renderer: rd, color: "#ffffff", weight: 1.2, opacity: .5, dashArray: "3 4", interactive: false}).addTo(map);
   L.polyline(lines.main, {renderer: rd, color: "#ffffff", weight: 2, opacity: .75, interactive: false}).addTo(map);
   sigLayer = L.layerGroup().addTo(map);
+  map.on("moveend", () => { if (!ml3d) stLabels(); });
   initLandmarks();
   map.on("click", ev => setPoint(state.pick, ev.latlng.lat, ev.latlng.lng, null));
 }
@@ -1280,8 +1369,11 @@ function init3D() {
     ml.addSource("utci", {type: "image", url: utciUrl(state.slot), coordinates: [[lo0, la1], [lo1, la1], [lo1, la0], [lo0, la0]]});
     ml.addSource("photo", {type: "raster", tiles: [PHOTO_URL], tileSize: 256, maxzoom: PHOTO_Z, attribution: "航照：內政部國土測繪中心"});
     ml.addLayer({id: "photo", type: "raster", source: "photo", layout: {visibility: photoOn ? "visible" : "none"}, paint: {"raster-fade-duration": 0}});
+    ml.addSource("emap", {type: "raster", tiles: [EMAP_URL], tileSize: 256, maxzoom: EMAP_Z, attribution: "電子地圖：內政部國土測繪中心"});
+    ml.addLayer({id: "emap", type: "raster", source: "emap", layout: {visibility: emapOn ? "visible" : "none"}, paint: {"raster-fade-duration": 0}});
+    ml.on("error", ev => { if (ev.sourceId === "emap" && !ml._emapWarned) { ml._emapWarned = true; toast("3D 電子地圖載入失敗（國土測繪中心服務連不上）", 5000); } });
     ml.on("error", ev => { if (ev.sourceId === "photo" && !ml._photoWarned) { ml._photoWarned = true; toast("3D 航照載入失敗（國土測繪中心服務連不上，或不允許跨網站讀取）", 5000); } });
-    ml.addLayer({id: "utci", type: "raster", source: "utci", layout: {visibility: heatOn() ? "visible" : "none"}, paint: {"raster-opacity": photoOn ? 0.45 : 0.8, "raster-resampling": "nearest", "raster-fade-duration": 0}});
+    ml.addLayer({id: "utci", type: "raster", source: "utci", layout: {visibility: heatOn() ? "visible" : "none"}, paint: {"raster-opacity": photoOn || emapOn ? 0.45 : 0.8, "raster-resampling": "nearest", "raster-fade-duration": 0}});
     ml.addSource("bld", {type: "geojson", data: gj});
     ml.addLayer({id: "bld", type: "fill-extrusion", source: "bld", paint: {
       "fill-extrusion-color": ["interpolate", ["linear"], ["get", "h"], 0, dark ? "#3c4542" : "#e6ebe9", 60, dark ? "#6f7b77" : "#b4bfbb"],
@@ -1291,6 +1383,8 @@ function init3D() {
       layout: {"line-cap": "round", "line-join": "round"},
       paint: Object.assign({"line-color": ["get", "color"], "line-width": ["get", "w"], "line-opacity": ["get", "op"]}, dash ? {"line-dasharray": [2, 1.6]} : {})});
     line("route-solid", 0); line("route-dash", 1);
+    mlStreets().catch(() => toast("街道圖層（scene3d.json）載入失敗", 4500));
+    ml.on("moveend", () => { if (ml3d && !IMM.on) stLabels(); });
     ml.on("click", e => { if (!IMM.on) setPoint(state.pick, e.lngLat.lat, e.lngLat.lng, null); });
     immHook();
   })();
@@ -1339,13 +1433,13 @@ async function set3D(on) {
     const c = map.getCenter();
     ml.resize(); ml.jumpTo({center: [c.lng, c.lat], zoom: map.getZoom() - 1, pitch: 55, bearing: -17});
     $("#map").style.visibility = "hidden";
-    sync3D(); grow();
+    sync3D(); grow(); mlStreetStyle();
     hint.textContent = "建物高度：國土測繪中心三維建物（右鍵或雙指拖曳可旋轉）";
   } else {
     ml3d = false; label(false);
     if (ml) { const c = ml.getCenter(); map.setView([c.lat, c.lng], ml.getZoom() + 1, {animate: false}); }
     $("#map3d").hidden = true; $("#map").style.visibility = "";
-    map.invalidateSize({animate: false});
+    map.invalidateSize({animate: false}); stLabels();
     hint.textContent = "立體顯示建物高度（右鍵或雙指拖曳可旋轉）";
   }
 }
@@ -1365,7 +1459,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-26 第 22 版（路線綠覆率）";
+const PAGE_VER = "2026-10-27 第 23 版（街道與路名圖層）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1526,7 +1620,7 @@ async function scene3d() {
 async function addScene() {
   if (ml.getLayer("imm-route")) return;
   const S = await scene3d(), C = sceneColors(), src = (id, data) => ml.addSource(id, {type: "geojson", data});
-  for (const k of ["roads", "parks", "leaf", "trunk", "walk", "xing"]) src("s-" + k, S[k]);
+  for (const k of ["roads", "parks", "leaf", "trunk", "walk", "xing"]) if (!ml.getSource("s-" + k)) src("s-" + k, S[k]);
   src("imm-route", {type: "FeatureCollection", features: []}); src("imm-done", {type: "FeatureCollection", features: []});
   const before = "bld";
   ml.addLayer({id: "s-bg", type: "background", paint: {"background-color": C.bg}, layout: {visibility: "none"}}, "utci");
@@ -1976,7 +2070,7 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
       ["38–46", "非常強熱壓力"], ["&gt;46", "極端熱壓力"]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("") +
       (D.cold_low != null ? `<span>&lt;${D.cold_low}</span><span>本研究的偏冷負荷（非標準冷壓力）</span>` : "");
   }
-  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。${GR ? "<br>綠覆率：沿路每 1 m 取一點，落在樹冠或草地上的比例；樹冠與土地覆蓋就是 SOLWEIG 計算 UTCI 用的 2 m 網格（臺北市行道樹與公園樹實測、OpenStreetMap 樹木，加上 Meta 全球樹冠高度資料）。綠覆率不分時段；「曬」則是該時段被建物或樹遮住後的結果。" : ""}<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
+  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。${GR ? "<br>綠覆率：沿路每 1 m 取一點，落在樹冠或草地上的比例；樹冠與土地覆蓋就是 SOLWEIG 計算 UTCI 用的 2 m 網格（臺北市行道樹與公園樹實測、OpenStreetMap 樹木，加上 Meta 全球樹冠高度資料）。綠覆率不分時段；「曬」則是該時段被建物或樹遮住後的結果。" : ""}<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>街道與路名：道路寬度依 OpenStreetMap 道路中心線與路型估計（© OpenStreetMap contributors），路名與斑馬線來自本研究路網；只是示意，不是實際車道邊界。電子地圖（開啟時）：內政部國土測繪中心「臺灣通用電子地圖」WMTS。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
   initMap();
   loadWeather();
   wireSearch($("#qa"), $("#sa"), "A"); wireSearch($("#qb"), $("#sb"), "B");
@@ -1987,6 +2081,8 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
   $("#wMean").onclick = () => { state.mode = "mean"; $("#wMean").setAttribute("aria-pressed", true); $("#wWorst").setAttribute("aria-pressed", false); compute(); };
   $("#b3d").onclick = () => set3D(!ml3d);
   $("#photo").onclick = () => setPhoto(!photoOn);
+  $("#emap").onclick = () => setEmap(!emapOn);
+  $("#street").onclick = () => { streetOn = !streetOn; swTxt("#street", "街道", streetOn); if (ml) mlStreetStyle(); else stLabels(); };
   // 圖層面板：開關、Esc 或點面板外面關閉
   const lyShow = on => { $("#layers").hidden = !on; $("#lyOpen").setAttribute("aria-expanded", on); if (on) $("#lyClose").focus(); };
   $("#lyOpen").onclick = () => lyShow($("#layers").hidden); $("#lyClose").onclick = () => { lyShow(false); $("#lyOpen").focus(); };
@@ -1994,8 +2090,9 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
   document.addEventListener("pointerdown", ev => { if (!$("#layers").hidden && !ev.target.closest("#layers,#lyOpen")) lyShow(false); });
   $("#heatLy").onclick = () => {
     const on = $("#heatLy").getAttribute("aria-pressed") !== "true"; $("#heatLy").setAttribute("aria-pressed", on); $("#heatLy").textContent = `熱度圖：${on ? "開" : "關"}`;
-    utciLayer.setOpacity(on ? (photoOn ? 0.5 : 0.78) : 0); $("#legend").style.opacity = on ? "" : "0.4";
+    utciLayer.setOpacity(on ? (photoOn || emapOn ? 0.5 : 0.78) : 0); $("#legend").style.opacity = on ? "" : "0.4";
     if (ml && ml.getLayer("utci") && !IMM.on) ml.setLayoutProperty("utci", "visibility", on ? "visible" : "none");
+    if (ml) mlStreetStyle();
   };
   $("#lmk").onclick = () => { lmkOn = !lmkOn; $("#lmk").setAttribute("aria-pressed", lmkOn); $("#lmk").textContent = `地標：${lmkOn ? "開" : "關"}`; drawLandmarks(); immLmkShow(true); };
   immWire();
