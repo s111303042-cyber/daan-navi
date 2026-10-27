@@ -145,6 +145,15 @@ img.utci-layer{image-rendering:pixelated}
 .rainmode .rc[aria-pressed="true"].cool{border-color:var(--rain);background:var(--rain-soft)}
 .rainmode .rc.cool .k i{border-top-color:var(--rain)}
 .rainmode #delta{background:var(--rain-soft)}
+#why{margin:0 10px 6px;border:1px solid var(--line);border-radius:10px;padding:0 10px;font-size:13px}
+#why[hidden]{display:none}
+#why summary{cursor:pointer;padding:8px 0;font-weight:700;color:var(--shade);list-style:none}
+#why summary::-webkit-details-marker{display:none}
+#why summary::before{content:"💡 "}
+#why summary::after{content:" ▾";font-weight:400}
+#why[open] summary::after{content:" ▴"}
+#why ul{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:5px;line-height:1.5}
+#why .src{list-style:none;margin-left:-18px;color:var(--muted);font-size:11.5px}
 @media (min-width:900px){
   #panel{width:440px;justify-content:flex-start;gap:10px}
   #sheet{max-height:none;flex:1;min-height:0}
@@ -199,24 +208,43 @@ img.utci-layer{image-rendering:pixelated}
 #imm[hidden]{display:none}
 #panel[hidden],#legend[hidden]{display:none!important}
 body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-inset-bottom,0px)) + 190px)}
-#imm .ban{pointer-events:auto;align-self:flex-start;max-width:min(440px,100%);background:var(--shade);color:#fff;border-radius:16px;padding:12px 16px;box-shadow:0 6px 20px rgb(0 0 0 / .25);display:grid;grid-template-columns:auto 1fr;gap:2px 14px;align-items:center}
+#imm .top{display:flex;flex-direction:column;align-items:flex-start;width:min(560px,100%)}
+#imm .ban{pointer-events:auto;width:100%;background:#0f5c4c;color:#fff;border-radius:18px;padding:14px 18px;box-shadow:0 6px 20px rgb(0 0 0 / .28);display:grid;grid-template-columns:auto 1fr;gap:2px 16px;align-items:center;box-sizing:border-box}
 #imm .ban.wait{background:var(--sun)}
-#imm .ban .ar{grid-row:1/3;font-size:34px;line-height:1;font-weight:700;min-width:40px;text-align:center}
-#imm .ban .d{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
-#imm .ban .s{font-size:14px;opacity:.95}
-#imm .then{pointer-events:none;width:fit-content;margin-top:6px;background:var(--panel);color:var(--ink);border-radius:10px;padding:4px 10px;font-size:12.5px;box-shadow:0 2px 8px rgb(0 0 0 / .15)}
+#imm .ban .ar{grid-row:1/3;font-size:46px;line-height:1;font-weight:700;min-width:48px;text-align:center}
+#imm .ban .d{font-size:16px;font-weight:600;opacity:.9;font-variant-numeric:tabular-nums}
+#imm .ban .s{font-size:22px;font-weight:700;line-height:1.25}
+#imm .then{pointer-events:none;width:fit-content;margin-top:-6px;padding:12px 16px 8px;background:#0b4a3d;color:#fff;border-radius:0 0 14px 14px;font-size:16px;font-weight:600;box-shadow:0 4px 12px rgb(0 0 0 / .2)}
+#imm .then.wx{margin-top:8px;padding:4px 10px;border-radius:10px;background:var(--panel);color:var(--ink);font-size:12.5px;font-weight:400}
 #imm .then[hidden]{display:none}
-#imm .bot{pointer-events:auto;background:var(--panel);color:var(--ink);border-radius:16px;padding:10px 12px;box-shadow:0 6px 20px rgb(0 0 0 / .25);display:flex;flex-direction:column;gap:8px;max-width:640px;width:100%;align-self:center}
-#imm .stats{display:flex;justify-content:space-around;align-items:flex-end;text-align:center;gap:8px}
-#imm .stats b{display:block;font-size:18px;font-variant-numeric:tabular-nums}
-#imm .stats small{color:var(--muted);font-size:11.5px}
-#imm .stats .u{font-size:13px;font-variant-numeric:tabular-nums;padding:2px 8px;border-radius:999px;color:#1d2523;display:inline-block}
+#imm .side{position:absolute;right:max(14px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-55%);display:flex;flex-direction:column;gap:14px;pointer-events:none}
+#imm .rb{pointer-events:auto;width:58px;height:58px;border-radius:50%;border:0;background:#fff;color:#1d2523;box-shadow:0 3px 10px rgb(0 0 0 / .3);display:grid;place-items:center;font:inherit;font-size:13px;font-weight:700;text-decoration:none;cursor:pointer;position:relative}
+#imm .rb[hidden]{display:none}
+#imm .rb[aria-pressed="true"]{background:#e6f4ef;color:var(--shade);outline:2px solid var(--shade)}
+#imm #immN svg{width:44px;height:44px;transition:transform .15s linear}
+#imm #immN b{position:absolute;bottom:5px;font-size:11px;color:#1d2523}
+#imm .low{display:flex;flex-direction:column;align-items:center}
+#imm .bot{pointer-events:auto;background:var(--panel);color:var(--ink);border-radius:20px;padding:12px 14px;box-shadow:0 6px 20px rgb(0 0 0 / .25);display:flex;flex-direction:column;gap:8px;max-width:640px;width:100%;box-sizing:border-box}
+#imm .mainrow{display:flex;align-items:center;gap:12px}
+#imm .xbtn{flex:none;width:64px;height:64px;border-radius:50%;border:2px solid #c9cfcd;background:var(--panel);color:#c5221f;display:grid;place-items:center;cursor:pointer}
+#imm .xbtn:active{background:#fde7e6}
+#imm .stats{flex:1;text-align:center}
+#imm .stats .big{font-size:16px}
+#imm .stats .big b{font-size:30px;font-variant-numeric:tabular-nums;margin-right:2px}
+#imm .stats .sub{color:var(--muted);font-size:15px;font-variant-numeric:tabular-nums}
+#imm .uw{flex:none;display:flex;flex-direction:column;align-items:center;gap:2px}
+#imm .uw small{color:var(--muted);font-size:11px}
+#imm .u{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums;padding:6px 10px;border-radius:999px;color:#1d2523;display:inline-block}
 #imm .ctl{display:flex;gap:6px;align-items:center}
 #imm .ctl input[type=range]{flex:1;min-width:60px;accent-color:var(--shade)}
-#imm .ctl .iconbtn{height:34px}
+#imm .ctl .iconbtn{height:36px}
+#imm .ctl [hidden]{display:none}
+#imm .seg2{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;flex:none}
+#imm .seg2 button{border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;padding:8px 14px;cursor:pointer}
+#imm .seg2 button[aria-pressed="true"]{background:var(--shade);color:#fff;font-weight:700}
 #imm .recenter{pointer-events:auto;align-self:center;margin-bottom:8px}
 #imm .recenter[hidden]{display:none}
-#imm .note{font-size:11px;color:var(--muted);text-align:center}
+#imm .note{font-size:10.5px;color:var(--muted);text-align:center}
 #immGo{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;margin:10px 0 4px;padding:10px 14px;border:0;border-radius:14px;
   background:var(--shade);color:#fff;font:inherit;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgb(0 0 0 / .18)}
 #immGo .gi{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:rgb(255 255 255 / .22);font-size:14px}
@@ -303,6 +331,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
         <button class="rc fast" id="cardFast" aria-pressed="false"><span class="k"><i></i>最快路線</span><span class="v" id="vFast">–</span><span class="m" id="mFast"></span></button>
       </div>
       <div id="delta" hidden></div>
+      <details id="why" hidden><summary>為什麼選這條路？</summary><ul id="whyList"></ul></details>
       <button id="immGo" hidden><span class="gi">▶</span>開始導航<small>沉浸式・跟著你的位置</small></button>
       <div class="sheet-head"><span class="hint" id="stepsTitle">路線說明</span><span><button id="toggleSteps">收合</button></span></div>
       <ol id="steps"></ol>
@@ -318,30 +347,33 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
   <div id="toast" hidden></div>
   <canvas id="rainFx" hidden aria-hidden="true"></canvas>
   <div id="imm" hidden aria-label="沉浸式導航">
-    <div>
+    <div class="top">
       <div class="ban" id="immBan" role="status" aria-live="polite"><span class="ar" id="immAr">↑</span><span class="d" id="immD">–</span><span class="s" id="immS"></span></div>
       <div class="then" id="immThen" hidden></div>
-      <div class="then" id="immWx" hidden></div>
+      <div class="then wx" id="immWx" hidden></div>
     </div>
-    <div style="display:flex;flex-direction:column">
-      <button class="iconbtn recenter" id="immRe" hidden>回到導航視角</button>
+    <div class="side">
+      <button class="rb" id="immN" title="指北針：點一下切換「北方朝上／跟著前進方向」" aria-label="指北針" aria-pressed="false"><svg viewBox="0 0 40 40" id="immNsvg"><path d="M20 4 L26 20 L14 20 Z" fill="#d93025"/><path d="M20 36 L26 20 L14 20 Z" fill="#9aa0a6"/><text x="20" y="25" text-anchor="middle" font-size="0">N</text></svg><b>N</b></button>
+      <a class="rb" id="immSv" href="https://www.google.com/maps" target="_blank" rel="noopener" title="在 Google 地圖開啟這個位置的街景（新分頁）" aria-label="街景"><span>街景</span></a>
+      <button class="rb" id="immHeat" aria-pressed="false" title="地面顯示 UTCI 熱度圖" aria-label="熱度圖"><span>熱度</span></button>
+      <button class="rb" id="immRe" hidden title="回到導航視角" aria-label="回到導航視角"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 2 L19 21 L12 17 L5 21 Z" fill="#1a73e8"/></svg></button>
+    </div>
+    <div class="low">
       <button class="iconbtn recenter" id="immNew" hidden>已離開路線・從這裡重新規劃</button>
       <div class="bot">
-        <div class="stats">
-          <div><b id="immEta">–</b><small>抵達</small></div>
-          <div><b id="immMin">–</b><small>分鐘</small></div>
-          <div><b id="immM">–</b><small>公尺</small></div>
-          <div><span class="u" id="immU">–</span><small style="display:block">此段 UTCI</small></div>
+        <div class="mainrow">
+          <button class="xbtn" id="immX" aria-label="結束導航" title="結束導航"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M5 5 L19 19 M19 5 L5 19" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></button>
+          <div class="stats">
+            <div class="big"><b id="immMin">–</b> 分鐘</div>
+            <div class="sub"><span id="immM">–</span> 公尺・<span id="immEta">–</span> 抵達</div>
+          </div>
+          <div class="uw"><span class="u" id="immU">–</span><small>此段 UTCI</small></div>
         </div>
         <div class="ctl">
-          <button class="iconbtn" id="immGps" aria-pressed="false" title="用手機定位，跟著你的實際位置導航">跟隨定位</button>
-          <button class="iconbtn" id="immSim" aria-pressed="false" title="不用定位，沿路線自動播放一次">模擬播放</button>
+          <div class="seg2"><button id="immGps" aria-pressed="false" title="用手機定位，跟著你的實際位置導航">跟隨定位</button><button id="immSim" aria-pressed="false" title="不用定位，沿路線自動播放一次">模擬播放</button></div>
           <button class="iconbtn" id="immPlay" aria-label="暫停">❚❚</button>
           <button class="iconbtn" id="immSpd" title="播放速度">8×</button>
           <input type="range" id="immBar" min="0" max="1000" value="0" aria-label="路線進度">
-          <a class="iconbtn" id="immSv" href="https://www.google.com/maps" target="_blank" rel="noopener" title="在 Google 地圖開啟這個位置的街景（新分頁）" style="display:inline-flex;align-items:center;text-decoration:none">街景</a>
-          <button class="iconbtn" id="immHeat" aria-pressed="false" title="地面顯示 UTCI 熱度圖">熱度圖</button>
-          <button class="iconbtn" id="immX">結束</button>
         </div>
         <div class="note"><span id="immMode">模擬播放（依步行 1.2 m/s 與紅燈等待）</span>・光影：<span id="immSunTxt"></span>・建物：國土測繪中心・車道與公園：© OpenStreetMap contributors・樹：臺北市行道樹與公園樹</div>
       </div>
@@ -367,6 +399,7 @@ const hOver = u => Math.max(u - (D.heat_low ?? 32), 0), cUnder = u => D.cold_low
 const ZERO = 0.5;                          // 負荷小於 0.5 °C·min（顯示為 0）視為沒有
 const slotLabel = s => `${String(Math.floor(s / 2)).padStart(2, "0")}:${s % 2 ? "30" : "00"}`;
 
+let GR = null;   // 每段路綠覆率（%）：沿路落在樹冠或草地的比例（SOLWEIG 用的樹冠與土地覆蓋 2 m 網格，10/27）
 let D, NN, NE, X, Y, adjStart, adjEdge, adjNode, UT, SUN, SH, CL, xCl, xTyp, xBase, nodeU = {};
 const SAFE = 1.5;   // 「避開人車共道」：人車共道路段成本加權
 const state = {A: null, B: null, slot: 28, mode: "mean", safe: false, pick: "B", sel: "cool", res: null,
@@ -396,7 +429,7 @@ async function load() {
     adjEdge[fill[a]] = e; adjNode[fill[a]++] = b;
     adjEdge[fill[b]] = e; adjNode[fill[b]++] = a;
   }
-  UT = dec(D.utci, D); SUN = b64(D.sun); SH = D.shelter ? b64(D.shelter) : null;   // 雨天：每段路遮蔽機率（%）
+  UT = dec(D.utci, D); SUN = b64(D.sun); GR = D.green ? b64(D.green) : null; SH = D.shelter ? b64(D.shelter) : null;   // 雨天：每段路遮蔽機率（%）
   CL = D.clusters.map(c => ({...c, x: (c.lon - lon0) * kx, y: (c.lat - lat0) * ky}));
   // 穿越邊：號誌路口編號（-1 無號誌，-2 不是穿越邊）、0 沿主路 / 1 穿越主路、無號誌等待秒數
   xCl = new Int32Array(NE).fill(-2); xTyp = new Uint8Array(NE); xBase = new Float32Array(NE);
@@ -475,11 +508,11 @@ function route(o, t, s, w, mode, safe) {
 }
 function edgeBetween(a, b) { for (let j = adjStart[a]; j < adjStart[a + 1]; j++) if (adjNode[j] === b) return adjEdge[j]; return -1; }
 function metrics(path, s, mode) {
-  const nu = nodeUtci(s); let L = 0, U = 0, S = 0, X46 = 0, wait = 0, nsig = 0, paid = -1, wet = 0, H = 0, C = 0, Hw = 0, Cw = 0;   // Hw/Cw：等紅燈的部分
+  const nu = nodeUtci(s); let Gn = 0, L = 0, U = 0, S = 0, X46 = 0, wait = 0, nsig = 0, paid = -1, wet = 0, H = 0, C = 0, Hw = 0, Cw = 0;   // Hw/Cw：等紅燈的部分
   const segs = [], comp = new Float64Array(7);
   for (let i = 0; i + 1 < path.length; i++) {
     const a = path[i], b = path[i + 1], e = edgeBetween(a, b), l = D.elen[e], u = eU(e, s), sun = SUN[e * (D.ns || 48) + s - (D.s0 || 0)] / 100;
-    L += l; U += u * l; S += sun * l; if (u > 46) X46 += l; comp[D.ekind[e]] += l;
+    L += l; U += u * l; S += sun * l; if (u > 46) X46 += l; comp[D.ekind[e]] += l; if (GR) Gn += GR[e] / 100 * l;
     H += l / SPEED / 60 * hOver(u); C += l / SPEED / 60 * cUnder(u);
     const p = SH ? SH[e] / 100 : 0; wet += l * (1 - p);
     const seg = {e, a, b, l, u, sun, p, wait: null, cross: xCl[e] !== -2};
@@ -494,7 +527,7 @@ function metrics(path, s, mode) {
     segs.push(seg);
   }
   const walk = L / SPEED / 60;
-  return {path, segs, length: L, walk, wait: wait / 60, total: walk + wait / 60, nsig, utci: U / L, sun: S / L, extreme: X46 / L,
+  return {path, segs, length: L, walk, wait: wait / 60, total: walk + wait / 60, nsig, utci: U / L, sun: S / L, green: GR ? Gn / L : null, extreme: X46 / L,
           hdose: H + Hw, cdose: C + Cw, dose: (H + Hw) + (C + Cw), comp: Array.from(comp, x => x / L),   // 熱負荷、偏冷負荷、總負荷 L = H + C（°C·min，含等紅燈）
           rain: wet / SPEED + wait, shelter: 1 - wet / L};   // 雨天：估算淋雨秒數（露天步行＋等紅燈）、遮蔽比例
 }
@@ -591,7 +624,7 @@ async function loadBike() {
     if (d !== 2) { aE[fill[a]] = e; aN[fill[a]++] = b; }
     if (d !== 1) { aE[fill[b]] = e; aN[fill[b]++] = a; }
   }
-  const UTb = dec(J.utci, J);
+  const UTb = dec(J.utci, J); J.gr = J.green ? b64(J.green) : null;
   const st = J.stations.filter(s => s[5] === 1).map(s => {
     const ws = stationNodes(s[1], s[2]);
     return {name: s[0], lat: s[1], lon: s[2], docks: s[3], b: s[4], w: ws[0].n, ws, x: (s[2] - D.lon0) * D.kx, y: (s[1] - D.lat0) * D.ky};
@@ -653,13 +686,13 @@ function bikeTree(src, targets, s, w, sp) {
   return res;
 }
 function bikeMetrics(path, edges, s, sp) {
-  let L = 0, T = 0, UT = 0, H = 0, C = 0, X38 = 0; const comp = [0, 0, 0], segs = [];
+  let L = 0, T = 0, UT = 0, H = 0, C = 0, X38 = 0, Gn = 0; const comp = [0, 0, 0], segs = [], gr = BK.J.gr;
   for (let i = 0; i < edges.length; i++) {
     const e = edges[i], l = BK.J.elen[e], t = edgeMin(e, sp), u = bU(e, s);
-    L += l; T += t; UT += u * t; H += hOver(u) * t; C += cUnder(u) * t; if (u >= 38) X38 += t; comp[BK.J.ekind[e]] += l;
+    L += l; T += t; UT += u * t; H += hOver(u) * t; C += cUnder(u) * t; if (u >= 38) X38 += t; comp[BK.J.ekind[e]] += l; if (gr) Gn += gr[e] / 100 * l;
     segs.push({e, a: path[i], b: path[i + 1], l, u, t});
   }
-  return {path, edges, segs, length: L, ride: T, utciMin: UT, hdose: H, cdose: C, dose: H + C, x38: X38, comp: comp.map(x => L ? x / L : 0)};
+  return {path, edges, segs, length: L, ride: T, utciMin: UT, hdose: H, cdose: C, dose: H + C, x38: X38, green: gr && L ? Gn / L : null, comp: comp.map(x => L ? x / L : 0)};
 }
 const near = (pt, r) => BK.st.map(st => ({st, d: Math.hypot(st.x - (pt.lon - D.lon0) * D.kx, st.y - (pt.lat - D.lat0) * D.ky)}))
   .filter(x => x.d <= r).sort((a, b) => a.d - b.d).slice(0, ST_MAX).map(x => x.st);
@@ -707,7 +740,8 @@ function planBike(A, B, s, mode, safe) {
       bill: sp.fixed + bk.ride, billSlow: (sp.fixed + bk.ride) / BK.J.slow,
       hdose: hd, cdose: cd, dose: hd + cd,
       utci: (w1.utciMin + best.uR * RENT_MIN + bk.utciMin + best.uT * RETURN_MIN + w2.utciMin) / total,
-      length: w1.length + bk.length + w2.length, nsig: (w1.nsig || 0) + (w2.nsig || 0)});
+      length: w1.length + bk.length + w2.length, nsig: (w1.nsig || 0) + (w2.nsig || 0),
+      green: bk.green == null ? null : ((w1.green || 0) * w1.length + bk.green * bk.length + (w2.green || 0) * w2.length) / Math.max(w1.length + bk.length + w2.length, 1)});
   }
   if (!cands.length) return {err: "找不到可行的 YouBike 路線"};
   const fast = cands[0];
@@ -718,6 +752,65 @@ function planBike(A, B, s, mode, safe) {
   return {bike: true, fast, cool, over};
 }
 
+// ======== 「為什麼選這條路？」規則式說明（10/27，使用者選擇不用語言模型）：只用路線算出來的數字組句子 ========
+const roadOf = lab => /^(人行道|標線人行道|人車共道|步道|斑馬線|有頂通道|過馬路|階梯|電梯|巷弄|道路|自行車道)$/.test(lab) ? "" : lab.replace(/（.*）$/, "");
+function roadTable(list) {   // list：{lab, l, sun(0–1，可無), u}
+  const t = new Map();
+  for (const x of list) { const nm = roadOf(x.lab); if (!nm) continue; const r = t.get(nm) || {l: 0, sw: 0, uw: 0, hasSun: x.sun != null}; r.l += x.l; r.sw += (x.sun ?? 0) * x.l; r.uw += x.u * x.l; t.set(nm, r); }
+  return t;
+}
+function roadDiff(tf, tc) {   // 最涼路線多走的路（改走）與少走的路（避開），各取差最多的 2 條、差 ≥ 30 m
+  const d = (a, b) => [...a].map(([nm, r]) => ({nm, l: r.l - (b.get(nm)?.l || 0), r})).filter(x => x.l >= 30).sort((x, y) => y.l - x.l).slice(0, 2);
+  return {use: d(tc, tf), avoid: d(tf, tc)};
+}
+const roadTxt = x => `${x.nm}（約 ${Math.round(x.l / 10) * 10} m、${x.r.hasSun ? `曬 ${Math.round(x.r.sw / x.r.l * 100)}%、` : ""}平均 ${(x.r.uw / x.r.l).toFixed(1)}°C）`;
+const walkRoads = m => roadTable(steps(m, state.slot).filter(x => !x.wait && !x.xing).map(x => ({lab: x.lab, l: x.l, sun: x.sw / x.l, u: x.uw / x.l})));
+const bikeRoads = m => roadTable(bikeGroups(m.bk).map(g => ({lab: g.nm || "", l: g.l, u: g.ut / g.t})));
+const secTxt = sec => { sec = Math.round(sec); return sec >= 60 ? `${Math.floor(sec / 60)} 分${sec % 60 ? ` ${sec % 60} 秒` : "鐘"}` : `${sec} 秒`; };
+function whyShow(items, bike) {
+  const w = $("#why"); if (!items) { w.hidden = true; return; }
+  const rule = bike && state.bikeType === "一般車" ? "慢騎也能在免費 30 分鐘內還車的走法中，負荷最低的一條" : "總時間不超過最快路線 1.3 倍的走法中，負荷最低的一條";
+  items.push(`<li class="src">依據：${D.day ? D.day.replace(/^(\d{4})-?(\d{2})-?(\d{2}).*/, "$1-$2-$3") + " " : ""}${slotLabel(state.slot)} 的 SOLWEIG 模擬 UTCI（2 m 解析度）、號誌等待估計與路網；` +
+    `${KIND_NAME[state.kind]}路線＝${rule}。數字是模型估計，未含當天雲量與風的變化。</li>`);
+  $("#whyList").innerHTML = items.join(""); w.hidden = false;
+}
+const tiny = (f, c) => { const a = state.kind === "cold" ? f.cdose : state.kind === "mix" ? f.dose : f.hdose, b = state.kind === "cold" ? c.cdose : state.kind === "mix" ? c.dose : c.hdose; return a - b < Math.max(1, a * 0.02); };
+const tinyTxt = `<li><b>差異很小：</b>這個時段兩條路的負荷差不到 2%，走哪一條都可以，選順路的就好。</li>`;
+function greenTxt(f, c) {   // 綠覆率：和時段無關的「沿路有樹冠或草地」比例；曬% 則是這個時段被建物或樹遮住的結果
+  const a = Math.round(f.green * 100), b = Math.round(c.green * 100);
+  return `<li><b>綠覆率：</b>${a}% → <b>${b}%</b>${b - a >= 5 ? "，沿路樹比較多" : a - b >= 5 ? "，樹比較少，主要靠建物陰影" : "，差不多"}（沿路經過樹冠或草地的比例，不分時段）。</li>`;
+}
+function whyWalk(f, c) {
+  const k = state.kind, nm = KIND_NAME[k], out = [];
+  const dt = (c.total - f.total) * 60, dl = c.length - f.length;
+  if (tiny(f, c)) out.push(tinyTxt);
+  const {use, avoid} = roadDiff(walkRoads(f), walkRoads(c));
+  if (use.length || avoid.length)
+    out.push(`<li><b>走法差在哪：</b>${use.length ? `改走 ${use.map(roadTxt).join("、")}` : ""}${use.length && avoid.length ? "；" : ""}${avoid.length ? `避開最快路線會走的 ${avoid.map(roadTxt).join("、")}` : ""}。</li>`);
+  const sf = Math.round(f.sun * 100), sc = Math.round(c.sun * 100);
+  if (k === "cold") out.push(`<li><b>為什麼比較暖：</b>曬到太陽的路段 ${sf}% → <b>${sc}%</b>，平均體感 ${f.utci.toFixed(1)} → <b>${c.utci.toFixed(1)}°C</b>；${gainTxt(f, c)}。</li>`);
+  else out.push(`<li><b>為什麼比較涼：</b>曬到太陽的路段 ${sf}% → <b>${sc}%</b>，平均體感 ${f.utci.toFixed(1)} → <b>${c.utci.toFixed(1)}°C</b>；${gainTxt(f, c)}。</li>`);
+  if (c.green != null) out.push(greenTxt(f, c));
+  const xf = Math.round(f.extreme * 100), xc = Math.round(c.extreme * 100);
+  if (k !== "cold" && (xf || xc) && xf !== xc) out.push(`<li><b>極端熱壓力：</b>UTCI 超過 46°C 的路段 ${xf}% → <b>${xc}%</b>。</li>`);
+  out.push(`<li><b>代價：</b>${Math.abs(dl) < 10 && Math.abs(dt) < 10 ? "距離和時間幾乎一樣" : `${dl >= 0 ? `多走 ${Math.round(dl)} m` : `少走 ${Math.round(-dl)} m`}，${dt > 0 ? `多花約 ${secTxt(dt)}` : `還快約 ${secTxt(-dt)}`}`}（等紅燈 ${fmtMin(f.wait)} → ${fmtMin(c.wait)} 分、號誌 ${f.nsig} → ${c.nsig} 個）。</li>`);
+  return out;
+}
+function whyBike(f, c, wf) {
+  const k = state.kind, out = [];
+  if (tiny(f, c)) out.push(tinyTxt);
+  if (c.rent.name !== f.rent.name) out.push(`<li><b>借車站：</b>改到 <b>${c.rent.name}</b> 借車（最快路線用 ${f.rent.name}），步行到站 ${fmtMin(f.w1.total)} → ${fmtMin(c.w1.total)} 分。</li>`);
+  if (c.ret.name !== f.ret.name) out.push(`<li><b>還車站：</b>改到 <b>${c.ret.name}</b> 還車（最快路線用 ${f.ret.name}），還車後步行 ${fmtMin(f.w2.total)} → ${fmtMin(c.w2.total)} 分。</li>`);
+  const {use, avoid} = roadDiff(bikeRoads(f), bikeRoads(c));
+  if (use.length || avoid.length)
+    out.push(`<li><b>騎法差在哪：</b>${use.length ? `改騎 ${use.map(roadTxt).join("、")}` : ""}${use.length && avoid.length ? "；" : ""}${avoid.length ? `避開 ${avoid.map(roadTxt).join("、")}` : ""}。</li>`);
+  out.push(`<li><b>效果：</b>${gainTxt(f, c)}，平均體感 ${f.utci.toFixed(1)} → <b>${c.utci.toFixed(1)}°C</b>。</li>`);
+  if (c.green != null) out.push(greenTxt(f, c));
+  const dt = (c.total - f.total) * 60;
+  out.push(`<li><b>代價：</b>${dt > 0 ? `多花約 ${secTxt(dt)}` : `還快約 ${secTxt(-dt)}`}（走路 ${fmtMin(f.walkMin)} → ${fmtMin(c.walkMin)} 分、騎車 ${fmtMin(f.bk.ride)} → ${fmtMin(c.bk.ride)} 分）。</li>`);
+  if (wf) out.push(`<li><b>和全程走路比：</b>${gainTxt(wf, c)}，時間 ${Math.round(wf.total)} → ${Math.round(c.total)} 分。</li>`);
+  return out;
+}
 // ======== 路線說明（轉彎、等紅燈） ========
 const KL = ["人行道", "標線人行道", "人車共道", "步道", "斑馬線", "有頂通道", "過馬路"];
 function label(e) {
@@ -903,7 +996,7 @@ function drawBike() {
     $(v).innerHTML = `${fmtMin(c.total)}<small> 分</small>`;
     const bill = state.bikeType === "一般車"
       ? `<br>計費 <b>${Math.round(c.bill)}</b> 分・慢騎 <b class="${c.billSlow > FREE_MIN ? "warn" : ""}">${Math.round(c.billSlow)}</b> 分` : "";
-    $(mm).innerHTML = `走 <b>${fmtMin(c.walkMin)}${c.walkMin < 1 ? "" : " 分"}</b>・騎 <b>${fmtMin(c.bk.ride)}${c.bk.ride < 1 ? "" : " 分"}</b><br>平均 <b>${c.utci.toFixed(1)}°C</b>・${loadTxt(c)}${bill}`;
+    $(mm).innerHTML = `走 <b>${fmtMin(c.walkMin)}${c.walkMin < 1 ? "" : " 分"}</b>・騎 <b>${fmtMin(c.bk.ride)}${c.bk.ride < 1 ? "" : " 分"}</b><br>平均 <b>${c.utci.toFixed(1)}°C</b>${c.green == null ? "" : `・綠覆 <b>${Math.round(c.green * 100)}%</b>`}<br>${loadTxt(c)}${bill}`;
   };
   card(r.cool, "#vCool", "#mCool"); card(r.fast, "#vFast", "#mFast");
   const dl = $("#delta"); dl.hidden = false;
@@ -915,6 +1008,7 @@ function drawBike() {
   if (wf && state.kind !== "none") txt += `<br>和全程走最快的路比：${gainTxt(wf, r.cool)}，時間 ${Math.round(wf.total)} → ${Math.round(r.cool.total)} 分。`;
   if (r.over) txt += `<br><span class="warn">騎得慢的人可能超過免費 30 分鐘，建議改搭其他交通工具或分段借還。</span>`;
   dl.innerHTML = txt;
+  whyShow(state.kind === "none" ? null : same ? [`<li>附近沒有在時間限制內、負荷更低的借還站或騎法，所以最快的 YouBike 路線就是${nm}路線。</li>`] : whyBike(r.fast, r.cool, wf), true);
   // 路線說明
   const li = [], tag = x => uChip(x);
   const walkList = (w, first) => steps(w, s).map((x, i) => x.wait
@@ -1003,7 +1097,7 @@ function draw() {
     const sw = Math.round((m.comp[0] + m.comp[1]) * 100), mix = Math.round(m.comp[2] * 100);
     $(mm).innerHTML = rain
       ? `走 <b>${Math.round(m.length)} m</b>・等燈 <b>${fmtMin(m.wait)}${m.wait < 1 ? "" : " 分"}</b><br>估算淋雨 <b>${fmtMin(m.rain / 60)}${m.rain < 60 ? "" : " 分"}</b>・遮蔽 <b>${Math.round(m.shelter * 100)}%</b><br>平均 <b>${m.utci.toFixed(1)}°C</b>（模型估計）`
-      : `走 <b>${Math.round(m.length)} m</b>・等燈 <b>${fmtMin(m.wait)}${m.wait < 1 ? "" : " 分"}</b><br>平均 <b>${m.utci.toFixed(1)}°C</b>・曬 <b>${Math.round(m.sun * 100)}%</b><br>${loadTxt(m)}・人車共道 <b>${mix}%</b>`;
+      : `走 <b>${Math.round(m.length)} m</b>・等燈 <b>${fmtMin(m.wait)}${m.wait < 1 ? "" : " 分"}</b><br>平均 <b>${m.utci.toFixed(1)}°C</b>・曬 <b>${Math.round(m.sun * 100)}%</b><br>${m.green == null ? "" : `綠覆 <b>${Math.round(m.green * 100)}%</b>・`}人車共道 <b>${mix}%</b><br>${loadTxt(m)}`;
   };
   card(r.cool, "#vCool", "#mCool"); card(r.fast, "#vFast", "#mFast");
   const nm = KIND_NAME[state.kind];
@@ -1018,13 +1112,16 @@ function draw() {
         (dt > 0 ? `多花 <b>${Math.round(dt)} 秒</b>。` : `而且還快 <b>${Math.round(-dt)} 秒</b>。`);
   }
   else if (state.kind === "none") { dl.hidden = false; dl.textContent = noLoadTxt(); }
-  else if (same) { dl.hidden = false; dl.textContent = `這個時段最快的路線就是${nm}的路線。`; }
+  else if (same) { dl.hidden = false; dl.textContent = `這個時段最快的路線就是${nm}的路線。`;
+    whyShow([`<li>附近沒有在 1.3 倍時間內、負荷更低的走法，所以最快路線就是${nm}路線。沿路曬到太陽 ${Math.round(r.fast.sun * 100)}%${r.fast.green == null ? "" : `、綠覆率 ${Math.round(r.fast.green * 100)}%`}，平均體感 ${r.fast.utci.toFixed(1)}°C。</li>`]); }
   else {
     const du = r.cool.utci - r.fast.utci, dt = (r.cool.total - r.fast.total) * 60;
     dl.hidden = false;
     dl.innerHTML = `${nm}路線：${gainTxt(r.fast, r.cool)}，平均體感${du < 0 ? "低" : "高"} <b>${Math.abs(du).toFixed(1)}°C</b>，` +
       (dt > 0 ? `多花 <b>${Math.round(dt)} 秒</b>。` : `而且還快 <b>${Math.round(-dt)} 秒</b>。`);
+    whyShow(whyWalk(r.fast, r.cool));
   }
+  if (rain || state.kind === "none") whyShow(null);
   const st = steps(m, s);
   $("#stepsTitle").textContent = `${selCool ? (rain ? "少淋雨" : nm) : "最快"}路線說明（${slotLabel(s)} 出發）`;
   $("#steps").innerHTML = st.map((x, i) => x.wait
@@ -1268,7 +1365,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-26 第 18 版（大的開始導航按鈕、預設跟隨定位）";
+const PAGE_VER = "2026-10-26 第 22 版（路線綠覆率）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1561,7 +1658,7 @@ function immRender(dt) {
   let b = S.d + 25 <= R.L ? brg(pos, ahead) : brg(back, pos);
   if (IMM.gps && IMM.rp) {   // 跟隨定位：圖示在實際位置、朝實際方向
     pos = {lon: IMM.rp.lon, lat: IMM.rp.lat, i: pos.i};
-    const h = immGpsHeading(); if (h != null) b = h;
+    const h = immHeadingStep(immHeadingTarget(b), dt || 0); if (h != null) b = h;
   }
   if (IMM.cb == null) IMM.cb = b;
   const diff = ((b - IMM.cb + 540) % 360) - 180; IMM.cb += diff * Math.min(1, dt * 2.5 || 1);   // 鏡頭轉向平滑
@@ -1574,7 +1671,8 @@ function immRender(dt) {
   immIc.setLngLat([pos.lon, pos.lat]);
   if (icm !== immIcMode) { immIcMode = icm; const el = immIc.getElement(); el.classList.remove("walk", "bike"); el.classList.add(icm); el.innerHTML = icm === "bike" ? IC_BIKE : IC_WALK; el.title = icm === "bike" ? "騎 YouBike" : "步行"; }
   $("#immSv").href = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${pos.lat.toFixed(6)},${pos.lon.toFixed(6)}&heading=${Math.round((b + 360) % 360)}`;
-  if (IMM.follow) ml.jumpTo({center: [pos.lon, pos.lat], bearing: IMM.cb, pitch: 60, zoom: 19.2, padding: {top: Math.round(ml.getContainer().clientHeight * 0.42), bottom: 0, left: 0, right: 0}});
+  if (IMM.follow) ml.jumpTo({center: [pos.lon, pos.lat], bearing: IMM.north ? 0 : IMM.cb, pitch: 60, zoom: 19.2, padding: {top: Math.round(ml.getContainer().clientHeight * 0.42), bottom: 0, left: 0, right: 0}});
+  const nb = Math.round(ml.getBearing()); if (nb !== IMM.nb) { IMM.nb = nb; $("#immNsvg").style.transform = `rotate(${-nb}deg)`; }   // 指北針跟著地圖轉
   // 上方提示
   const ban = $("#immBan"); let nx = R.man.findIndex(x => x.d > S.d + 0.5);
   if (done) { ban.className = "ban"; $("#immAr").textContent = "終"; $("#immD").textContent = "抵達"; $("#immS").textContent = state.B.name.startsWith("地圖上") ? "終點" : state.B.name; $("#immThen").hidden = true; }
@@ -1596,7 +1694,7 @@ function immRender(dt) {
     }
     const y = nx >= 0 ? R.man[nx + 1] : null;
     $("#immThen").hidden = !y || !x || y.d - x.d > 60;
-    if (y && x && y.d - x.d <= 60) $("#immThen").textContent = `接著 ${arrowOf(y)} ${y.stop ? y.text : y.wait ? "等紅燈" : y.xing ? "過馬路" : y.turn === "出發" ? (y.bike ? "騎車" : "步行") : y.turn}`;
+    if (y && x && y.d - x.d <= 60) $("#immThen").textContent = `接下來 ${arrowOf(y)} ${y.stop ? y.text : y.wait ? "等紅燈" : y.xing ? "過馬路" : y.turn === "出發" ? (y.bike ? "騎車" : "步行") : y.turn}`;
   }
   if (IMM.gps && IMM.off >= OFF_N && !done) {   // 離開路線：不自動改路線，提示走回或重新規劃
     ban.className = "ban wait"; $("#immAr").textContent = "!"; $("#immD").textContent = `離路線約 ${Math.round(IMM.offM / 5) * 5} m`;
@@ -1734,6 +1832,12 @@ function immFix(p) {
   if (acc > 60) { if (!IMM.weak) toast(`定位訊號弱（誤差約 ${Math.round(acc)} m），先不移動`, 4000); IMM.weak = true; immGpsTxt(); return; }
   IMM.weak = false; IMM.acc = acc;
   if (!IMM.rp) IMM.rp = {lat, lon};
+  // 速度：手機有給就用，沒有就用和上一筆的距離÷時間；平滑後判斷「在走」還是「站著」
+  const now = Date.now();
+  let v = sp != null && !isNaN(sp) ? sp : null;
+  if (v == null && IMM.tgt && IMM.fixT) v = Math.hypot((lon - IMM.tgt.lon) * D.kx, (lat - IMM.tgt.lat) * D.ky) / Math.max((now - IMM.fixT) / 1000, 0.5);
+  if (v != null) IMM.spd = IMM.spd == null ? v : IMM.spd * 0.6 + v * 0.4;
+  IMM.fixT = now;
   IMM.tgt = {lat, lon};
   // 行進方向：手機有給 heading（移動中）就用；否則和上一個錨點距離夠遠（≥ 5 m 且 ≥ 誤差一半）才算方向，避免原地飄動亂轉
   if (hd != null && !isNaN(hd) && sp > 0.5) { IMM.hd = hd; IMM.hdT = Date.now(); }
@@ -1752,6 +1856,24 @@ function immGpsTxt() {
   const f = IMM.fix; if (!f) return;
   $("#immMode").textContent = `跟隨定位中・誤差約 ${Math.round(f.acc)} m${IMM.off >= OFF_N ? `・離路線約 ${Math.round(IMM.offM)} m` : ""}（預估時間以步行 1.2 m/s${immM.bike ? "、騎車依 YouBike 紀錄車速" : ""}與紅燈平均等待計算）`;
 }
+// 10/27 方向平滑：急轉 90 度的原因是方向來源會跳（GPS 方向、兩次定位連線、指南針三種來源輪流用，且直接套用沒有平滑）
+// 改成：在路線上走 → 用路線方向（看前方 25 m，轉彎前就開始慢慢轉）；偏離路線走 → 用移動方向；站著 3 秒以上 → 指南針。
+// 目標方向再經過低通濾波＋限制轉速（每秒最多 90°），小於 6° 的抖動不理會。
+function immHeadingTarget(routeB) {
+  const now = Date.now(), moving = IMM.spd != null && IMM.spd > 0.4 && now - (IMM.fixT || 0) < 5000;
+  if (moving) { IMM.still = 0; return IMM.off < OFF_N && IMM.offM < 25 ? routeB : (IMM.hd ?? routeB); }
+  if (!IMM.still) IMM.still = now;
+  if (IMM.cmp != null && now - IMM.cmpT < 2000 && now - IMM.still > 3000) return IMM.cmp;
+  return null;   // 站著且沒有指南針：維持目前方向
+}
+function immHeadingStep(tgt, dt) {
+  if (tgt == null) return IMM.hs;
+  if (IMM.hs == null) return IMM.hs = tgt;
+  let d = ((tgt - IMM.hs + 540) % 360) - 180;          // 走最短的那一邊（359° → 1° 只轉 2°）
+  if (Math.abs(d) < 6) return IMM.hs;                    // 死區：小抖動不轉
+  const step = Math.max(-90 * dt, Math.min(90 * dt, d * Math.min(1, dt * 2)));
+  return IMM.hs = (IMM.hs + step + 360) % 360;
+}
 function immGpsHeading() {   // 移動中（5 秒內有新方向）用移動方向；站著不動用指南針；都沒有就回傳 null（用路線方向）
   const now = Date.now();
   if (IMM.hd != null && now - IMM.hdT < 5000) return IMM.hd;
@@ -1763,7 +1885,10 @@ function immOri(e) {
   if (e.webkitCompassHeading != null) h = e.webkitCompassHeading;                 // iPhone
   else if (e.absolute && e.alpha != null) h = 360 - e.alpha;                         // Android（絕對方位）
   if (h == null || isNaN(h)) return;
-  IMM.cmp = (h + ((screen.orientation && screen.orientation.angle) || 0) + 360) % 360; IMM.cmpT = Date.now();
+  h = (h + ((screen.orientation && screen.orientation.angle) || 0)) * Math.PI / 180;
+  IMM.cx = IMM.cx == null ? Math.cos(h) : IMM.cx * 0.85 + Math.cos(h) * 0.15;   // 指南針本身會抖：用向量平均（避免 359/1 度平均成 180）
+  IMM.cy = IMM.cy == null ? Math.sin(h) : IMM.cy * 0.85 + Math.sin(h) * 0.15;
+  IMM.cmp = (Math.atan2(IMM.cy, IMM.cx) * 180 / Math.PI + 360) % 360; IMM.cmpT = Date.now();
 }
 // 定位失敗的說明（10/27）：依所在環境與錯誤碼分別提示
 function geoEnv() {
@@ -1800,7 +1925,7 @@ async function immGpsOn(askedPerm) {
   addEventListener("deviceorientationabsolute", immOri); addEventListener("deviceorientation", immOri);
   immSetPlay(false);
   Object.assign(IMM, {gps: true, gd: 0, dd: 0, off: 0, lastRe: 0, follow: true, cb: null, weak: false,
-    fix: null, rp: null, tgt: null, anc: null, hd: null, hdT: 0, cmp: null, cmpT: 0, offM: 0});
+    fix: null, rp: null, tgt: null, anc: null, hd: null, hdT: 0, cmp: null, cmpT: 0, offM: 0, spd: null, fixT: 0, still: 0, hs: null, cx: null, cy: null});
   $("#immGps").setAttribute("aria-pressed", true); $("#immSim").setAttribute("aria-pressed", false); $("#immRe").hidden = true;
   for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = true;
   $("#immMode").textContent = "跟隨定位中・等待第一筆定位…";
@@ -1827,6 +1952,8 @@ function immWire() {
   $("#immSpd").onclick = () => { IMM.spd = SPDS[(SPDS.indexOf(IMM.spd) + 1) % SPDS.length]; $("#immSpd").textContent = `${IMM.spd}×`; };
   $("#immBar").oninput = ev => { IMM.t = ev.target.value / 1000 * immM.T; IMM.cb = null; };
   $("#immRe").onclick = () => { IMM.follow = true; IMM.cb = null; $("#immRe").hidden = true; };
+  $("#immN").onclick = () => { IMM.north = !IMM.north; $("#immN").setAttribute("aria-pressed", IMM.north); IMM.follow = true; $("#immRe").hidden = true;
+    toast(IMM.north ? "北方朝上" : "跟著前進方向", 1500); };
   $("#immHeat").onclick = () => { IMM.heat = !IMM.heat; $("#immHeat").setAttribute("aria-pressed", IMM.heat); ml.setLayoutProperty("utci", "visibility", IMM.heat ? "visible" : "none"); };
   // 街景：Google 條款不允許把街景嵌在非 Google 地圖旁邊 → 用官方 Maps URLs 連結開新分頁（網址在 immRender 更新）
 }
@@ -1849,7 +1976,7 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
       ["38–46", "非常強熱壓力"], ["&gt;46", "極端熱壓力"]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("") +
       (D.cold_low != null ? `<span>&lt;${D.cold_low}</span><span>本研究的偏冷負荷（非標準冷壓力）</span>` : "");
   }
-  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
+  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。${GR ? "<br>綠覆率：沿路每 1 m 取一點，落在樹冠或草地上的比例；樹冠與土地覆蓋就是 SOLWEIG 計算 UTCI 用的 2 m 網格（臺北市行道樹與公園樹實測、OpenStreetMap 樹木，加上 Meta 全球樹冠高度資料）。綠覆率不分時段；「曬」則是該時段被建物或樹遮住後的結果。" : ""}<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
   initMap();
   loadWeather();
   wireSearch($("#qa"), $("#sa"), "A"); wireSearch($("#qb"), $("#sb"), "B");
