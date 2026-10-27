@@ -888,7 +888,7 @@ function base2D() {   // 有底圖（航照／電子地圖）時，平面建物�
   netLy.forEach(l => l.setStyle({opacity: emapOn ? 0 : l._op0}));
   if (emapOn) {
     const url = heatOn() ? EMAP_GRAY : EMAP_URL; if (emapTiles._url !== url) emapTiles.setUrl(url);
-    const c = emapTiles.getContainer(); if (c) c.style.filter = css("--bg") === "#121615" ? "brightness(.6) contrast(1.05)" : "";
+    const c = emapTiles.getContainer(), t = emapTone(); if (c) c.style.filter = `brightness(${t.b2d.toFixed(2)}) saturate(${t.sat2d.toFixed(2)})${t.warm ? ` sepia(${t.warm.toFixed(2)})` : ""}`;
   }
 }
 function setPhoto(on) {
@@ -917,13 +917,21 @@ function mlEmapLayer(url) {   // 3D 電子地圖圖層（無文字版載入失�
   ml.addLayer({id: "emap", type: "raster", source: "emap", layout: {visibility: emapOn && !IMM.on ? "visible" : "none"}, paint: {"raster-fade-duration": 0}}, ml.getLayer("utci") ? "utci" : undefined);
   mlEmapStyle();
 }
-function mlEmapStyle() {   // 3D 底圖退到背景：降低飽和度（熱度圖開時接近灰階）、對比；深色模式調暗
+// 第 27 版（10/27 使用者提議）：電子地圖的明暗跟沉浸式導航一樣，依所選時段的太陽高度＋天氣預報決定，不跟手機深色模式
+//   白天明亮；日出日落前後略暗、偏暖；夜間（太陽低於 -4°）調暗成深色；陰雨天再暗一點、顏色更灰
+function emapTone() {
+  const [h, mi] = slotLabel(state.slot).split(":").map(Number), date = tpTime(h, mi), {alt} = sunPos(date), cl = wxCloud(wxAt(date));
+  const night = alt < -4, day = Math.max(0, Math.min(1, (alt + 4) / 16));          // 0＝夜、1＝太陽 12° 以上
+  const bmax = (0.42 + 0.58 * day) * (1 - 0.18 * cl);
+  return {night, cl, bmax, bmin: night ? 0 : 0.06 * day, b2d: bmax, sat2d: 1 - 0.5 * cl - (night ? 0.3 : 0), warm: !night && day < 1 ? 0.25 * (1 - day) : 0};
+}
+function mlEmapStyle() {   // 3D 底圖退到背景：降低飽和度（熱度圖開時接近灰階）、對比；明暗依時段與天氣
   if (!ml || !ml.getLayer("emap")) return;
-  const dk = css("--bg") === "#121615";
-  ml.setPaintProperty("emap", "raster-saturation", heatOn() ? -0.9 : -0.35);
+  const t = emapTone();
+  ml.setPaintProperty("emap", "raster-saturation", heatOn() ? -0.9 : Math.max(-1, -0.35 - 0.4 * t.cl - (t.night ? 0.3 : 0)));
   ml.setPaintProperty("emap", "raster-contrast", -0.15);
-  ml.setPaintProperty("emap", "raster-brightness-min", dk ? 0 : 0.06);
-  ml.setPaintProperty("emap", "raster-brightness-max", dk ? 0.55 : 1);
+  ml.setPaintProperty("emap", "raster-brightness-min", t.bmin);
+  ml.setPaintProperty("emap", "raster-brightness-max", t.bmax);
 }
 
 // ======== 街道與路名（10/27 使用者提議：3D 鳥瞰只看得到建物，看不出街道） ========
@@ -968,9 +976,10 @@ function mlTreeStyle(imm = IMM.on) {
 let birdKey = "";
 function birdStyle() {
   if (!ml || !ml.getLayer("bld") || IMM.on) return;
+  mlEmapStyle();
   const [h, mi] = slotLabel(state.slot).split(":").map(Number), {az, alt} = sunPos(tpTime(h, mi));
-  const dk = css("--bg") === "#121615", night = alt < -4 || dk, heat = heatOn() && !photoOn && !emapOn;
-  const key = `${Math.round(az / 3)}_${Math.round(alt / 2)}_${dk}_${heat}`; if (key === birdKey) return; birdKey = key;
+  const dk = css("--bg") === "#121615" && !emapOn, night = alt < -4 || dk, heat = heatOn() && !photoOn && !emapOn;   // 電子地圖開著時，建物明暗跟時段（不跟手機深色模式）
+  const key = `${Math.round(az / 3)}_${Math.round(alt / 2)}_${dk}_${heat}_${emapOn}`; if (key === birdKey) return; birdKey = key;
   const C = sceneColors(night), f = c => heat ? mix(c, night ? "#2a2e33" : "#f2f2ee", 0.35) : c;
   ml.setPaintProperty("bld", "fill-extrusion-color", ["match", ["get", "k"], 0, f(C.fac[0]), 1, f(C.fac[1]), 2, f(C.fac[2]), 3, f(C.fac[3]), 4, f(C.fac[4]), f(C.fac[5])]);
   ml.setPaintProperty("bld", "fill-extrusion-vertical-gradient", true);
@@ -1017,7 +1026,7 @@ function stLabels(imm = IMM.on) {   // 依目前畫面挑路名（不重疊、�
   if (z < 15) return;
   const proj = is3 ? (p => ml.project(p)) : (p => map.latLngToContainerPoint([p[1], p[0]]));
   const el = is3 ? ml.getContainer() : map.getContainer(), W = el.clientWidth, H = el.clientHeight;
-  const dk = css("--bg") === "#121615" && !photoOn, got = [], max = W < 600 ? 28 : 55;
+  const dk = emapOn ? emapTone().night : css("--bg") === "#121615" && !photoOn, got = [], max = W < 600 ? 28 : 55;
   for (const c of stCands()) {
     if (got.length >= max) break;
     if (c.lane && z < 17) continue;
@@ -1290,9 +1299,24 @@ function draw() {
     : `<li><span class="ic">${i === 0 ? "起" : x.turn === "左轉" ? "←" : x.turn === "右轉" ? "→" : x.turn === "迴轉" ? "↶" : "↑"}</span><span class="t">${i === 0 ? "" : x.turn + "，"}${x.lab === "斑馬線" ? "走斑馬線" : "沿" + x.lab}<br><span class="s">${Math.round(x.l)} m・${rain ? `遮雨約 ${Math.round(x.pw / x.l * 100)}%` : `遮蔭 ${Math.round(100 - x.sw / x.l * 100)}%`}</span></span>${uChip(x.uw / x.l)}</li>`).join("") +
     `<li><span class="ic">終</span><span class="t">抵達${state.B.name.startsWith("地圖上") ? "終點" : state.B.name}</span><span></span></li>`;
 }
+// 第 28 版（10/27 使用者要求）：整個網頁（面板、按鈕、地圖）的淺色／深色跟所選時段走，不跟手機深色模式
+//   太陽在地平線 -4° 以上＝淺色（白天），以下＝深色（夜間）；「現在」自動模式時就跟著現在時間切換
+function applyTheme() {
+  const [h, mi] = slotLabel(state.slot).split(":").map(Number), th = sunPos(tpTime(h, mi)).alt < -4 ? "dark" : "light";
+  if (document.documentElement.dataset.theme === th) return;
+  document.documentElement.dataset.theme = th;
+  const mc = document.querySelector('meta[name="theme-color"]'); if (mc) mc.content = css("--bg");
+  if (map) { if (photoOn || emapOn) base2D(); if (!ml3d) stLabels(); }
+  if (ml && ml.getLayer("bg")) {
+    ml.setPaintProperty("bg", "background-color", css("--mapbg"));
+    birdKey = ""; mlStreetStyle();
+  }
+}
 function setSlot(s) {
   state.slot = s; $("#tout").textContent = slotLabel(s); $("#lgTime").textContent = slotLabel(s);
+  applyTheme();
   if (utciLayer) utciLayer.setUrl(`utci_${slotLabel(s).replace(":", "")}.png`);
+  if (emapOn) base2D();
   showWx();
   compute();
 }
@@ -1533,7 +1557,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-27 第 26 版（電子地圖底圖：3D 無文字、熱度圖下灰階）";
+const PAGE_VER = "2026-10-27 第 28 版（面板與地圖淺色／深色跟時段）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
