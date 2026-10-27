@@ -322,6 +322,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
         <div class="lysec">地圖圖層</div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10"/><circle cx="12" cy="17" r="4"/><path d="M16 6h3M16 10h3"/></svg></span><span class="lyt"><b>UTCI 熱度圖</b><small>地面顯示體感溫度（SOLWEIG 模擬）</small></span><button class="sw" id="heatLy" aria-pressed="true">熱度圖：開</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21L10 3M17 21L14 3M12 5v2M12 11v2M12 17v2"/></svg></span><span class="lyt"><b>街道與路名</b><small>OpenStreetMap 道路寬度＋路網的路名、斑馬線；不需額外網路</small></span><button class="sw" id="street" aria-pressed="true">街道：開</button></div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21v-6"/><path d="M12 15c-4 0-6-2.5-6-5.5S8.5 3 12 3s6 3 6 6.5-2 5.5-6 5.5z"/></svg></span><span class="lyt"><b>行道樹</b><small>3D 立體樹（臺北市行道樹與公園樹，約 3.2 萬棵；樹形是示意）</small></span><button class="sw" id="tree" aria-pressed="true">行道樹：開</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg></span><span class="lyt"><b>3D 建物</b><small id="b3dHint">立體顯示建物高度（右鍵或雙指拖曳可旋轉）</small></span><button class="sw" id="b3d" aria-pressed="false" title="用國土測繪中心三維建物模型，以立體視角顯示建物高度">3D 建物：關</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 16l5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg></span><span class="lyt"><b>航照底圖</b><small>國土測繪中心正射航照；需要網路，沉浸式導航不使用</small></span><button class="sw" id="photo" aria-pressed="false">航照：關</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span><span class="lyt"><b>電子地圖底圖</b><small>國土測繪中心「臺灣通用電子地圖」（街道、路名、地標）；需要網路，和航照二選一</small></span><button class="sw" id="emap" aria-pressed="false">電子地圖：關</button></div>
@@ -904,17 +905,42 @@ function mlPhoto(imm = IMM.on) {   // 3D 鳥瞰：航照當地面；沉浸式（
 // ======== 街道與路名（10/27 使用者提議：3D 鳥瞰只看得到建物，看不出街道） ========
 // 道路＝沉浸式同一份 OpenStreetMap 道路中心線＋路型寬度（scene3d.json）；斑馬線、路名＝本研究路網
 // 熱度圖開著時只畫路緣白線（不蓋住路面上的熱度顏色）；熱度圖關掉時畫灰色路面＋公園＋斑馬線
+const leafColor = C => ["match", ["get", "s"], 0, mix(C.leaf, "#000000", 0.2), 2, mix(C.leaf, "#ffffff", 0.14), C.leaf];
+let treeOn = true;
 async function mlStreets() {
   if (ml.getLayer("st-roads")) return;
   const S = await scene3d(); if (ml.getLayer("st-roads")) return;
-  for (const k of ["roads", "parks", "xing"]) if (!ml.getSource("s-" + k)) ml.addSource("s-" + k, {type: "geojson", data: S[k]});
+  for (const k of ["roads", "parks", "xing", "leaf", "trunk"]) if (!ml.getSource("s-" + k)) ml.addSource("s-" + k, {type: "geojson", data: S[k]});
   ml.addLayer({id: "st-parks", type: "fill", source: "s-parks", paint: {"fill-color": "#a9d18e", "fill-opacity": 0.7}}, "utci");
   ml.addLayer({id: "st-roads", type: "line", source: "s-roads", layout: {"line-cap": "round", "line-join": "round"}, paint: {"line-color": "#9aa1a8", "line-width": mPx(["get", "w"])}}, "bld");
   ml.addLayer({id: "st-edge", type: "line", source: "s-roads", layout: {"line-join": "round"}, paint: {"line-color": "#ffffff", "line-width": 1.2, "line-gap-width": mPx(["get", "w"]), "line-opacity": 0.75}}, "bld");
   ml.addLayer({id: "st-xing", type: "line", source: "s-xing", paint: {"line-color": "#f4f4f2", "line-width": mPx(4), "line-dasharray": [0.25, 0.2]}}, "bld");
+  // 行道樹（10/27 使用者提議）：和沉浸式同一份樹，3D 鳥瞰也顯示
+  ml.addLayer({id: "st-trunk", type: "fill-extrusion", source: "s-trunk", paint: {"fill-extrusion-color": "#7a5a3c", "fill-extrusion-height": 0, "fill-extrusion-base": 0}});
+  ml.addLayer({id: "st-leaf", type: "fill-extrusion", source: "s-leaf", paint: {"fill-extrusion-color": "#4f9a4a", "fill-extrusion-height": 0, "fill-extrusion-base": 0, "fill-extrusion-opacity": 0.95}});
+  growTrees();
   mlStreetStyle();
 }
+function growTrees() {   // 樹跟建物一樣從地面長出來
+  if (!ml || !ml.getLayer("st-leaf")) return;
+  const dur = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1200, t0 = performance.now();
+  const step = now => {
+    const t = dur ? Math.min((now - t0) / dur, 1) : 1, k = 1 - Math.pow(1 - t, 3);
+    ml.setPaintProperty("st-leaf", "fill-extrusion-height", ["*", ["get", "h"], k]); ml.setPaintProperty("st-leaf", "fill-extrusion-base", ["*", ["get", "b"], k]);
+    ml.setPaintProperty("st-trunk", "fill-extrusion-height", ["*", ["get", "h"], k]);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function mlTreeStyle(imm = IMM.on) {
+  if (!ml) return;
+  const C = sceneColors(css("--bg") === "#121615"), v = (id, on) => ml.getLayer(id) && ml.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+  v("st-leaf", treeOn && !imm); v("st-trunk", treeOn && !imm);
+  if (imm) { v("s-leaf", treeOn); v("s-trunk", treeOn); }
+  if (ml.getLayer("st-leaf")) { ml.setPaintProperty("st-leaf", "fill-extrusion-color", leafColor(C)); ml.setPaintProperty("st-trunk", "fill-extrusion-color", C.trunk); }
+}
 function mlStreetStyle(imm = IMM.on) {
+  mlTreeStyle(imm);
   if (ml && ml.getLayer("st-roads")) {
     const vis = streetOn && !imm && !emapOn, heat = heatOn(), night = css("--bg") === "#121615", C = sceneColors(night);
     const v = (id, on) => ml.setLayoutProperty(id, "visibility", on ? "visible" : "none");
@@ -1433,7 +1459,7 @@ async function set3D(on) {
     const c = map.getCenter();
     ml.resize(); ml.jumpTo({center: [c.lng, c.lat], zoom: map.getZoom() - 1, pitch: 55, bearing: -17});
     $("#map").style.visibility = "hidden";
-    sync3D(); grow(); mlStreetStyle();
+    sync3D(); grow(); growTrees(); mlStreetStyle();
     hint.textContent = "建物高度：國土測繪中心三維建物（右鍵或雙指拖曳可旋轉）";
   } else {
     ml3d = false; label(false);
@@ -1459,7 +1485,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-27 第 23 版（街道與路名圖層）";
+const PAGE_VER = "2026-10-27 第 24 版（行道樹圖層）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1578,7 +1604,7 @@ function immSun(date) {
   if (ml.getLayer("photo")) ml.setPaintProperty("photo", "raster-brightness-max", night ? 0.35 : 1);
   for (const [id, k] of [["s-parks", "park"], ["s-roads", "road"], ["s-walk", "walk"], ["s-xing", "xing"]])
     ml.setPaintProperty(id, id === "s-parks" ? "fill-color" : "line-color", C[k]);
-  ml.setPaintProperty("s-leaf", "fill-extrusion-color", C.leaf); ml.setPaintProperty("s-trunk", "fill-extrusion-color", C.trunk);
+  ml.setPaintProperty("s-leaf", "fill-extrusion-color", leafColor(C)); ml.setPaintProperty("s-trunk", "fill-extrusion-color", C.trunk);
   ml.setPaintProperty("bld", "fill-extrusion-color", ["match", ["get", "k"], 0, C.fac[0], 1, C.fac[1], 2, C.fac[2], 3, C.fac[3], 4, C.fac[4], C.fac[5]]);
   const lab = $("#immSunTxt"); if (lab) lab.textContent = night ? "夜間" : `太陽 ${dirName(az)}方、仰角 ${Math.round(alt)}°`;
 }
@@ -1604,8 +1630,9 @@ async function scene3d() {
   const poly = (lon, lat, r, n) => { const ring = []; for (let k = 0; k <= n; k++) { const a = k / n * 2 * Math.PI; ring.push([lon + r * Math.cos(a) / D.kx, lat + r * Math.sin(a) / D.ky]); } return [ring]; };
   for (let i = 0; i < J.trees.length; i += 3) {
     x += J.trees[i]; y += J.trees[i + 1]; const h = J.trees[i + 2], lon = x / sc, lat = y / sc;
-    const r = Math.min(Math.max(h * 0.28, 1.5), 4.5);
-    leaf.push({type: "Feature", properties: {b: h * 0.4, h}, geometry: {type: "Polygon", coordinates: poly(lon, lat, r, 8)}});
+    const r = Math.min(Math.max(h * 0.28, 1.5), 4.5), b = h * 0.4, m = b + (h - b) * 0.6, sh = (i / 3 * 7) % 3;   // 樹冠分兩層（下寬上窄，看起來比較圓）；sh＝顏色深淺
+    leaf.push({type: "Feature", properties: {b, h: m, s: sh}, geometry: {type: "Polygon", coordinates: poly(lon, lat, r, 10)}});
+    leaf.push({type: "Feature", properties: {b: m, h, s: sh}, geometry: {type: "Polygon", coordinates: poly(lon, lat, r * 0.62, 10)}});
     trunk.push({type: "Feature", properties: {h: h * 0.4}, geometry: {type: "Polygon", coordinates: poly(lon, lat, 0.25, 4)}});
   }
   // 人行道與斑馬線：直接用路網（每種一個 MultiLineString，畫得比較快）
@@ -1633,7 +1660,7 @@ async function addScene() {
   ml.addLayer({id: "imm-route", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": ["get", "c"], "line-width": mPx(4.5)}}, before);
   ml.addLayer({id: "imm-done", type: "line", source: "imm-done", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": "#8a90a8", "line-width": mPx(4.6)}}, before);
   ml.addLayer({id: "s-trunk", type: "fill-extrusion", source: "s-trunk", layout: {visibility: "none"}, paint: {"fill-extrusion-color": C.trunk, "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": 0}});
-  ml.addLayer({id: "s-leaf", type: "fill-extrusion", source: "s-leaf", layout: {visibility: "none"}, paint: {"fill-extrusion-color": C.leaf, "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-opacity": 0.95}});
+  ml.addLayer({id: "s-leaf", type: "fill-extrusion", source: "s-leaf", layout: {visibility: "none"}, paint: {"fill-extrusion-color": leafColor(C), "fill-extrusion-height": ["get", "h"], "fill-extrusion-base": ["get", "b"], "fill-extrusion-opacity": 0.95}});
   ml.addLayer({id: "imm-ghost", type: "line", source: "imm-route", layout: {"line-cap": "round", "line-join": "round", visibility: "none"}, paint: {"line-color": ["get", "c"], "line-width": mPx(3), "line-opacity": 0.28}});
 }
 const IMM_LAYERS = ["s-bg", "s-parks", "s-roads", "s-walk", "s-xing", "imm-casing", "imm-route", "imm-done", "s-trunk", "s-leaf", "imm-ghost"];
@@ -2082,6 +2109,7 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
   $("#b3d").onclick = () => set3D(!ml3d);
   $("#photo").onclick = () => setPhoto(!photoOn);
   $("#emap").onclick = () => setEmap(!emapOn);
+  $("#tree").onclick = () => { treeOn = !treeOn; swTxt("#tree", "行道樹", treeOn); if (ml) mlTreeStyle(); };
   $("#street").onclick = () => { streetOn = !streetOn; swTxt("#street", "街道", streetOn); if (ml) mlStreetStyle(); else stLabels(); };
   // 圖層面板：開關、Esc 或點面板外面關閉
   const lyShow = on => { $("#layers").hidden = !on; $("#lyOpen").setAttribute("aria-expanded", on); if (on) $("#lyClose").focus(); };
