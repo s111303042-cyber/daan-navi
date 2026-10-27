@@ -939,7 +939,25 @@ function mlTreeStyle(imm = IMM.on) {
   if (imm) { v("s-leaf", treeOn); v("s-trunk", treeOn); }
   if (ml.getLayer("st-leaf")) { ml.setPaintProperty("st-leaf", "fill-extrusion-color", leafColor(C)); ml.setPaintProperty("st-trunk", "fill-extrusion-color", C.trunk); }
 }
+// 3D 鳥瞰的建物（10/27 使用者提議）：和沉浸式一樣用外牆配色＋依所選時段的太陽方向打光（向陽面亮、背光面暗），高樓頂部略亮
+// 熱度圖開著時外牆配色調淡一點，讓地面熱度仍是主角
+let birdKey = "";
+function birdStyle() {
+  if (!ml || !ml.getLayer("bld") || IMM.on) return;
+  const [h, mi] = slotLabel(state.slot).split(":").map(Number), {az, alt} = sunPos(tpTime(h, mi));
+  const dk = css("--bg") === "#121615", night = alt < -4 || dk, heat = heatOn() && !photoOn && !emapOn;
+  const key = `${Math.round(az / 3)}_${Math.round(alt / 2)}_${dk}_${heat}`; if (key === birdKey) return; birdKey = key;
+  const C = sceneColors(night), f = c => heat ? mix(c, night ? "#2a2e33" : "#f2f2ee", 0.35) : c;
+  ml.setPaintProperty("bld", "fill-extrusion-color", ["match", ["get", "k"], 0, f(C.fac[0]), 1, f(C.fac[1]), 2, f(C.fac[2]), 3, f(C.fac[3]), 4, f(C.fac[4]), f(C.fac[5])]);
+  ml.setPaintProperty("bld", "fill-extrusion-vertical-gradient", true);
+  const low = Math.max(0, Math.min(1, alt / 25));
+  ml.setLight({anchor: "map", position: [1.4, night ? 200 : az, night ? 30 : 90 - Math.max(alt, 6)],
+               color: night ? "#a8b2cf" : alt < 12 ? "#ffd9b0" : "#ffffff", intensity: night ? 0.3 : 0.35 + 0.25 * low});
+  if (ml.setSky) ml.setSky(night ? {"sky-color": "#121826", "horizon-color": "#2a3148", "sky-horizon-blend": 0.5}
+                                 : {"sky-color": alt < 8 ? "#8a9fd4" : "#9cc6f0", "horizon-color": alt < 8 ? "#f7c9a3" : "#eef4f8", "sky-horizon-blend": 0.6});
+}
 function mlStreetStyle(imm = IMM.on) {
+  if (!imm) birdStyle();
   mlTreeStyle(imm);
   if (ml && ml.getLayer("st-roads")) {
     const vis = streetOn && !imm && !emapOn, heat = heatOn(), night = css("--bg") === "#121615", C = sceneColors(night);
@@ -1427,7 +1445,7 @@ function grow() {
 }
 function sync3D() {       // 把平面地圖上的路線、起終點、借還車站、號誌點同步到 3D 地圖
   if (!ml3d || !ml || !ml.getSource("route")) return;
-  ml.getSource("utci").updateImage({url: utciUrl(state.slot)});
+  ml.getSource("utci").updateImage({url: utciUrl(state.slot)}); birdStyle();
   const feats = [];
   for (const l of routeLayers) {
     const o = l.options; let ll = l.getLatLngs(); if (!ll.length) continue;
@@ -1459,7 +1477,7 @@ async function set3D(on) {
     const c = map.getCenter();
     ml.resize(); ml.jumpTo({center: [c.lng, c.lat], zoom: map.getZoom() - 1, pitch: 55, bearing: -17});
     $("#map").style.visibility = "hidden";
-    sync3D(); grow(); growTrees(); mlStreetStyle();
+    birdKey = ""; sync3D(); grow(); growTrees(); mlStreetStyle();
     hint.textContent = "建物高度：國土測繪中心三維建物（右鍵或雙指拖曳可旋轉）";
   } else {
     ml3d = false; label(false);
@@ -1485,7 +1503,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-27 第 24 版（行道樹圖層）";
+const PAGE_VER = "2026-10-27 第 25 版（3D 鳥瞰建物配色與日照）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1673,9 +1691,7 @@ function immStyle(on) {
   ml.setPaintProperty("utci", "raster-opacity", on ? 0.55 : 0.8);
   if (on) { immSunKey = ""; immSun(immClock()); }
   else {
-    ml.setPaintProperty("bld", "fill-extrusion-color", ["interpolate", ["linear"], ["get", "h"], 0, css("--bg") === "#121615" ? "#3c4542" : "#e6ebe9", 60, css("--bg") === "#121615" ? "#6f7b77" : "#b4bfbb"]);
-    ml.setLight({anchor: "viewport", position: [1.15, 210, 30], color: "#ffffff", intensity: 0.5});
-    if (ml.setSky) ml.setSky({"sky-color": css("--mapbg") || "#dfe4e2", "horizon-color": css("--mapbg") || "#dfe4e2", "sky-horizon-blend": 0});
+    birdKey = ""; birdStyle();
   }
   ml.setPaintProperty("bld", "fill-extrusion-opacity", on ? 0.97 : 0.92);
   mlPhoto(on);
