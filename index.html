@@ -320,6 +320,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
     </div>
     <div style="display:flex;flex-direction:column">
       <button class="iconbtn recenter" id="immRe" hidden>回到導航視角</button>
+      <button class="iconbtn recenter" id="immNew" hidden>已離開路線・從這裡重新規劃</button>
       <div class="bot">
         <div class="stats">
           <div><b id="immEta">–</b><small>抵達</small></div>
@@ -1261,7 +1262,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-26 第 15 版（路線不再浮在建物上方）";
+const PAGE_VER = "2026-10-26 第 17 版（跟隨定位：圖示跟著實際位置與方向）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1537,7 +1538,10 @@ const clock = sec => { const m0 = state.slot * 30 + Math.round(sec / 60); return
 function immFrame(now) {
   if (!IMM.on) return;
   const dt = IMM.last ? Math.min((now - IMM.last) / 1000, 0.25) : 0; IMM.last = now;
-  if (IMM.gps) IMM.dd += (IMM.gd - IMM.dd) * Math.min(1, dt * 2);   // 位置平滑移動，不會一格一格跳
+  if (IMM.gps) {   // 位置平滑移動，不會一格一格跳
+    const k = Math.min(1, dt * 2); IMM.dd += (IMM.gd - IMM.dd) * k;
+    if (IMM.rp && IMM.tgt) { IMM.rp.lat += (IMM.tgt.lat - IMM.rp.lat) * k; IMM.rp.lon += (IMM.tgt.lon - IMM.rp.lon) * k; }
+  }
   else if (IMM.play) { IMM.t += dt * IMM.spd; if (IMM.t >= immM.T) { IMM.t = immM.T; immSetPlay(false); } }
   immRender(dt);
   if (now - (IMM.sunT || 0) > 1000) { IMM.sunT = now; immSun(immClock()); }
@@ -1545,14 +1549,19 @@ function immFrame(now) {
   requestAnimationFrame(immFrame);
 }
 function immRender(dt) {
-  const R = immM, S = IMM.gps ? immGpsState() : immState(IMM.t), pos = immPos(S.d), ahead = immPos(S.d + 25), back = immPos(S.d - 3);
+  const R = immM, S = IMM.gps ? immGpsState() : immState(IMM.t), ahead = immPos(S.d + 25), back = immPos(S.d - 3);
+  let pos = immPos(S.d); const onR = pos;
   const tNow = IMM.gps ? immTimeAt(S.d) : IMM.t, done = IMM.gps ? R.L - S.d < 12 : IMM.t >= R.T;
   let b = S.d + 25 <= R.L ? brg(pos, ahead) : brg(back, pos);
+  if (IMM.gps && IMM.rp) {   // 跟隨定位：圖示在實際位置、朝實際方向
+    pos = {lon: IMM.rp.lon, lat: IMM.rp.lat, i: pos.i};
+    const h = immGpsHeading(); if (h != null) b = h;
+  }
   if (IMM.cb == null) IMM.cb = b;
   const diff = ((b - IMM.cb + 540) % 360) - 180; IMM.cb += diff * Math.min(1, dt * 2.5 || 1);   // 鏡頭轉向平滑
   immMk.setLngLat([pos.lon, pos.lat]).setRotation(b);
   ml.getSource("imm-done").setData({type: "Feature", properties: {}, geometry: {type: "LineString",
-    coordinates: R.pts.slice(0, pos.i + 1).map(q => [q.lon, q.lat]).concat([[pos.lon, pos.lat]])}});
+    coordinates: R.pts.slice(0, pos.i + 1).map(q => [q.lon, q.lat]).concat([[onR.lon, onR.lat]])}});
   const g = R.segs[Math.min(S.seg, R.segs.length - 1)], riding = !!g && g.bike && !S.waitLeft;
   if (immMk.getElement().classList.contains("riding") !== riding) immMk.getElement().classList.toggle("riding", riding);
   const icm = g && g.bike ? "bike" : "walk";
@@ -1582,6 +1591,10 @@ function immRender(dt) {
     const y = nx >= 0 ? R.man[nx + 1] : null;
     $("#immThen").hidden = !y || !x || y.d - x.d > 60;
     if (y && x && y.d - x.d <= 60) $("#immThen").textContent = `接著 ${arrowOf(y)} ${y.stop ? y.text : y.wait ? "等紅燈" : y.xing ? "過馬路" : y.turn === "出發" ? (y.bike ? "騎車" : "步行") : y.turn}`;
+  }
+  if (IMM.gps && IMM.off >= OFF_N && !done) {   // 離開路線：不自動改路線，提示走回或重新規劃
+    ban.className = "ban wait"; $("#immAr").textContent = "!"; $("#immD").textContent = `離路線約 ${Math.round(IMM.offM / 5) * 5} m`;
+    $("#immS").textContent = "走回路線上，或按下方「從這裡重新規劃」"; $("#immThen").hidden = true;
   }
   // 下方數字
   const u = g.u;
@@ -1665,8 +1678,9 @@ async function immExit() {
 }
 
 // ======== 跟隨定位（需要放在自己的 HTTPS 網站；claude.ai 頁面會擋定位） ========
-// 手機 GPS 位置 → 貼到路線上最近的點（優先找目前位置附近，避免跳到路線另一段）
-// 連續 3 次離路線超過約 30 m → 從目前位置重新規劃
+// 10/27 改：圖示放在手機實際位置（平滑移動），方向用移動方向（GPS heading 或兩次定位連線），站著不動時用指南針。
+// 路線上的進度（轉彎提示、剩餘距離）仍用「貼到路線上最近的點」計算。
+// 連續 3 次離路線超過約 30 m → 不自動重新規劃，只顯示「從這裡重新規劃」按鈕
 const OFF_M = 30, OFF_N = 3, RE_GAP = 10000;
 const clockNow = sec => { const d = new Date(Date.now() + sec * 1000); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 function immSnap(lat, lon, dPrev) {
@@ -1700,44 +1714,88 @@ function immReroute(lat, lon) {
   immLoad(keep === "cool" ? r.cool : r.fast);
   mlMarkers.forEach(m => m.getElement().style.display = "none");
   IMM.gd = IMM.dd = 0; IMM.cb = null;
+  IMM.off = 0; immGpsTxt();
   toast("已從目前位置重新規劃路線");
 }
 function immFix(p) {
-  const {latitude: lat, longitude: lon, accuracy: acc} = p.coords;
+  const {latitude: lat, longitude: lon, accuracy: acc, heading: hd, speed: sp} = p.coords;
   IMM.fix = {lat, lon, acc};
-  if (!immRaw) { const el = document.createElement("div"); el.className = "gpsraw"; immRaw = new maplibregl.Marker({element: el}); }
-  immRaw.setLngLat([lon, lat]).addTo(ml);
-  if (acc > 60) { if (!IMM.weak) toast(`定位訊號弱（誤差約 ${Math.round(acc)} m），先不移動`, 4000); IMM.weak = true; return; }
-  IMM.weak = false;
-  const sn = immSnap(lat, lon, IMM.gd);
-  if (sn.dist > OFF_M + Math.min(acc, 20)) {
-    IMM.off++;
-    const first = IMM.gd === 0 && IMM.dd === 0;
-    if ((first || IMM.off >= OFF_N) && Date.now() - IMM.lastRe > RE_GAP) immReroute(lat, lon);
-    return;
+  if (acc > 60) { if (!IMM.weak) toast(`定位訊號弱（誤差約 ${Math.round(acc)} m），先不移動`, 4000); IMM.weak = true; immGpsTxt(); return; }
+  IMM.weak = false; IMM.acc = acc;
+  if (!IMM.rp) IMM.rp = {lat, lon};
+  IMM.tgt = {lat, lon};
+  // 行進方向：手機有給 heading（移動中）就用；否則和上一個錨點距離夠遠（≥ 5 m 且 ≥ 誤差一半）才算方向，避免原地飄動亂轉
+  if (hd != null && !isNaN(hd) && sp > 0.5) { IMM.hd = hd; IMM.hdT = Date.now(); }
+  else if (!IMM.anc) IMM.anc = {lat, lon};
+  else if (Math.hypot((lon - IMM.anc.lon) * D.kx, (lat - IMM.anc.lat) * D.ky) >= Math.max(5, acc * 0.5)) {
+    IMM.hd = brg(IMM.anc, {lat, lon}); IMM.hdT = Date.now(); IMM.anc = {lat, lon};
   }
-  IMM.off = 0;
+  const sn = immSnap(lat, lon, IMM.gd);
+  IMM.offM = sn.dist;
+  if (sn.dist > OFF_M + Math.min(acc, 20)) { if (++IMM.off >= OFF_N) $("#immNew").hidden = false; immGpsTxt(); return; }
+  IMM.off = 0; $("#immNew").hidden = true;
   IMM.gd = Math.max(sn.d, IMM.gd - 8);   // GPS 往回飄一點時不倒退
-  immRaw.getElement().style.display = sn.dist > 10 ? "" : "none";
+  immGpsTxt();
+}
+function immGpsTxt() {
+  const f = IMM.fix; if (!f) return;
+  $("#immMode").textContent = `跟隨定位中・誤差約 ${Math.round(f.acc)} m${IMM.off >= OFF_N ? `・離路線約 ${Math.round(IMM.offM)} m` : ""}（預估時間以步行 1.2 m/s${immM.bike ? "、騎車依 YouBike 紀錄車速" : ""}與紅燈平均等待計算）`;
+}
+function immGpsHeading() {   // 移動中（5 秒內有新方向）用移動方向；站著不動用指南針；都沒有就回傳 null（用路線方向）
+  const now = Date.now();
+  if (IMM.hd != null && now - IMM.hdT < 5000) return IMM.hd;
+  if (IMM.cmp != null && now - IMM.cmpT < 2000) return IMM.cmp;
+  return IMM.hd;
+}
+function immOri(e) {
+  let h = null;
+  if (e.webkitCompassHeading != null) h = e.webkitCompassHeading;                 // iPhone
+  else if (e.absolute && e.alpha != null) h = 360 - e.alpha;                         // Android（絕對方位）
+  if (h == null || isNaN(h)) return;
+  IMM.cmp = (h + ((screen.orientation && screen.orientation.angle) || 0) + 360) % 360; IMM.cmpT = Date.now();
+}
+// 定位失敗的說明（10/27）：依所在環境與錯誤碼分別提示
+function geoEnv() {
+  const ua = navigator.userAgent || "";
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Messenger|Instagram|Line\/|MicroMessenger|Threads/i.test(ua)) return "inapp";
+  let framed = false; try { framed = window.self !== window.top; } catch (_) { framed = true; }
+  if (framed || /claude\.ai|claudeusercontent/.test(location.hostname)) return "claude";
+  if (!window.isSecureContext) return "http";
+  return "ok";
+}
+function geoMsg(e) {
+  const env = geoEnv();
+  if (env === "inapp") return "Messenger、LINE、IG 等 App 內建的瀏覽器通常不給網頁定位。請按右上角「⋯」→「在瀏覽器中開啟」，改用 Chrome 或 Safari。";
+  if (env === "claude") return "在 claude.ai 頁面裡定位會被擋，請改用 GitHub Pages 版網址。";
+  if (env === "http") return "網址要是 https:// 開頭才能定位。";
+  if (!e || e.code === 1) return "沒有定位權限。請到手機「設定」允許這個瀏覽器使用位置（iPhone：設定 → 隱私權 → 定位服務 → Safari 網站；Android：網址列左邊的鎖頭 → 權限 → 位置），再重新整理。";
+  if (e.code === 3) return "定位逾時（室內或訊號弱時常見），請到戶外再按一次，或改點地圖選起點。";
+  return "暫時拿不到位置，請確認手機的定位（GPS）有開，或改點地圖選起點。";
 }
 function immGpsErr(e) {   // 拒絕權限才停止；暫時拿不到位置（室內、騎樓下）就繼續等
-  if (e.code === 1) { immGpsOff(); toast("沒有定位權限。若是在 claude.ai 裡開啟，請改用 GitHub Pages 版；手機請在設定允許瀏覽器使用位置。", 7000); return; }
+  if (e.code === 1) { immGpsOff(); toast(geoMsg(e), 9000); return; }
   if (!IMM.weak) toast("暫時拿不到定位，畫面先停在最後的位置", 4000);
   IMM.weak = true;
 }
 async function immGpsOn() {
-  if (!navigator.geolocation) { toast("這個瀏覽器不支援定位"); return; }
+  if (!navigator.geolocation) { toast(geoEnv() === "ok" ? "這個瀏覽器不支援定位" : geoMsg(), 9000); return; }
+  // 指南針（iPhone 要在按鈕點擊當下詢問權限；拒絕或不支援就只用移動方向）
+  const DOE = window.DeviceOrientationEvent;
+  if (DOE && typeof DOE.requestPermission === "function") { try { await DOE.requestPermission(); } catch (e) {} }
+  addEventListener("deviceorientationabsolute", immOri); addEventListener("deviceorientation", immOri);
   immSetPlay(false);
-  Object.assign(IMM, {gps: true, gd: 0, dd: 0, off: 0, lastRe: 0, follow: true, cb: null, weak: false});
+  Object.assign(IMM, {gps: true, gd: 0, dd: 0, off: 0, lastRe: 0, follow: true, cb: null, weak: false,
+    fix: null, rp: null, tgt: null, anc: null, hd: null, hdT: 0, cmp: null, cmpT: 0, offM: 0});
   IMM.watch = navigator.geolocation.watchPosition(immFix, immGpsErr, {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000});
   try { IMM.lock = await navigator.wakeLock.request("screen"); } catch (e) { IMM.lock = null; }   // 導航中不讓螢幕關掉（不支援就算了）
   $("#immGps").setAttribute("aria-pressed", true); $("#immRe").hidden = true;
   for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = true;
-  $("#immMode").textContent = `跟隨定位中（預估時間以步行 1.2 m/s${immM.bike ? "、騎車依 YouBike 紀錄車速" : ""}與紅燈平均等待計算）`;
+  $("#immMode").textContent = "跟隨定位中・等待第一筆定位…";
 }
 function immGpsOff() {
   if (IMM.watch != null) navigator.geolocation.clearWatch(IMM.watch);
-  IMM.watch = null; IMM.gps = false;
+  IMM.watch = null; IMM.gps = false; IMM.rp = null; $("#immNew").hidden = true;
+  removeEventListener("deviceorientationabsolute", immOri); removeEventListener("deviceorientation", immOri);
   try { IMM.lock && IMM.lock.release(); } catch (e) {} IMM.lock = null;
   immRaw && immRaw.remove();
   $("#immGps").setAttribute("aria-pressed", false);
@@ -1747,6 +1805,7 @@ function immGpsOff() {
 }
 function immWire() {
   $("#immGps").onclick = () => IMM.gps ? immGpsOff() : immGpsOn();
+  $("#immNew").onclick = () => { const f = IMM.fix; $("#immNew").hidden = true; if (f) immReroute(f.lat, f.lon); };
   $("#immGo").onclick = immEnter; $("#immX").onclick = immExit;
   $("#immPlay").onclick = () => immSetPlay(!IMM.play);
   $("#immSpd").onclick = () => { IMM.spd = SPDS[(SPDS.indexOf(IMM.spd) + 1) % SPDS.length]; $("#immSpd").textContent = `${IMM.spd}×`; };
@@ -1807,9 +1866,9 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
   $("#btNormal").onclick = () => setBikeType("一般車"); $("#btE").onclick = () => setBikeType("電輔車");
   $("#toggleSteps").onclick = () => { const sh = $("#sheet"); sh.classList.toggle("collapsed"); $("#toggleSteps").textContent = sh.classList.contains("collapsed") ? "展開" : "收合"; };
   $("#gps").onclick = () => {
-    if (!navigator.geolocation) { toast("這個瀏覽器不支援定位，請改點地圖選起點。"); return; }
+    if (!navigator.geolocation) { toast(geoEnv() === "ok" ? "這個瀏覽器不支援定位，請改點地圖選起點。" : geoMsg(), 9000); return; }
     navigator.geolocation.getCurrentPosition(p => { setPoint("A", p.coords.latitude, p.coords.longitude, "目前位置"); map.panTo([p.coords.latitude, p.coords.longitude]); },
-      () => toast("無法取得定位：在 claude.ai 頁面裡定位會被擋。請改點地圖或輸入地名選起點。", 5000), {enableHighAccuracy: true, timeout: 8000});
+      e => toast("無法取得定位：" + geoMsg(e), 9000), {enableHighAccuracy: true, timeout: 15000, maximumAge: 30000});
   };
   if (window.matchMedia("(max-width: 899px)").matches) { $("#sheet").classList.add("collapsed"); $("#toggleSteps").textContent = "展開"; }
   setSlot(28); autoTick(true);   // 預設跟著現在時間（不在模擬時段就用最近的時段）
