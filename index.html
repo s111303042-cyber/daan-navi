@@ -223,6 +223,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
 #imm .then.wx{margin-top:8px;padding:4px 10px;border-radius:10px;background:var(--panel);color:var(--ink);font-size:12.5px;font-weight:400}
 #imm .then[hidden]{display:none}
 #imm .side{position:absolute;right:max(14px,env(safe-area-inset-right,0px));top:50%;transform:translateY(-55%);display:flex;flex-direction:column;gap:14px;pointer-events:none}
+.simple #immSv,.simple #immHeat,.simple #imm .uw,.simple #immWx{display:none!important}
 #imm .rb{pointer-events:auto;width:58px;height:58px;border-radius:50%;border:0;background:#fff;color:#1d2523;box-shadow:0 3px 10px rgb(0 0 0 / .3);display:grid;place-items:center;font:inherit;font-size:13px;font-weight:700;text-decoration:none;cursor:pointer;position:relative}
 #imm .rb[hidden]{display:none}
 #imm .rb[aria-pressed="true"]{background:#e6f4ef;color:var(--shade);outline:2px solid var(--shade)}
@@ -319,6 +320,8 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
     <section id="layers" class="card" hidden aria-label="圖層與路線設定">
       <div class="lyhead"><b>圖層與設定</b><button class="lyx" id="lyClose" aria-label="關閉">✕</button></div>
       <div class="lylist">
+        <div class="lysec">顯示方式</div>
+        <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L19 21 L12 17 L5 21 Z"/></svg></span><span class="lyt"><b>簡潔導航</b><small>只顯示怎麼走：建物攤平、不顯示行道樹、熱度與天氣動畫</small></span><button class="sw" id="simple" aria-pressed="false">簡潔導航：關</button></div>
         <div class="lysec">地圖圖層</div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10"/><circle cx="12" cy="17" r="4"/><path d="M16 6h3M16 10h3"/></svg></span><span class="lyt"><b>UTCI 熱度圖</b><small>地面顯示體感溫度（SOLWEIG 模擬）</small></span><button class="sw" id="heatLy" aria-pressed="true">熱度圖：開</button></div>
         <div class="lyrow"><span class="lyic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 21L10 3M17 21L14 3M12 5v2M12 11v2M12 17v2"/></svg></span><span class="lyt"><b>街道與路名</b><small>OpenStreetMap 道路寬度＋路網的路名、斑馬線；不需額外網路</small></span><button class="sw" id="street" aria-pressed="true">街道：開</button></div>
@@ -364,6 +367,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
       <button class="rb" id="immN" title="指北針：點一下切換「北方朝上／跟著前進方向」" aria-label="指北針" aria-pressed="false"><svg viewBox="0 0 40 40" id="immNsvg"><path d="M20 4 L26 20 L14 20 Z" fill="#d93025"/><path d="M20 36 L26 20 L14 20 Z" fill="#9aa0a6"/><text x="20" y="25" text-anchor="middle" font-size="0">N</text></svg><b>N</b></button>
       <a class="rb" id="immSv" href="https://www.google.com/maps" target="_blank" rel="noopener" title="在 Google 地圖開啟這個位置的街景（新分頁）" aria-label="街景"><span>街景</span></a>
       <button class="rb" id="immHeat" aria-pressed="false" title="地面顯示 UTCI 熱度圖" aria-label="熱度圖"><span>熱度</span></button>
+      <button class="rb" id="immSimple" aria-pressed="false" title="簡潔導航：只顯示怎麼走（建物攤平、不顯示樹與熱度）" aria-label="簡潔導航"><span>簡潔</span></button>
       <button class="rb" id="immRe" hidden title="回到導航視角" aria-label="回到導航視角"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M12 2 L19 21 L12 17 L5 21 Z" fill="#1a73e8"/></svg></button>
     </div>
     <div class="low">
@@ -967,8 +971,8 @@ function growTrees() {   // 樹跟建物一樣從地面長出來
 function mlTreeStyle(imm = IMM.on) {
   if (!ml) return;
   const C = sceneColors(css("--bg") === "#121615"), v = (id, on) => ml.getLayer(id) && ml.setLayoutProperty(id, "visibility", on ? "visible" : "none");
-  v("st-leaf", treeOn && !imm); v("st-trunk", treeOn && !imm);
-  if (imm) { v("s-leaf", treeOn); v("s-trunk", treeOn); }
+  v("st-leaf", treeOn && !SIMPLE && !imm); v("st-trunk", treeOn && !SIMPLE && !imm);
+  if (imm) { v("s-leaf", treeOn && !SIMPLE); v("s-trunk", treeOn && !SIMPLE); }
   if (ml.getLayer("st-leaf")) { ml.setPaintProperty("st-leaf", "fill-extrusion-color", leafColor(C)); ml.setPaintProperty("st-trunk", "fill-extrusion-color", C.trunk); }
 }
 // 3D 鳥瞰的建物（10/27 使用者提議）：和沉浸式一樣用外牆配色＋依所選時段的太陽方向打光（向陽面亮、背光面暗），高樓頂部略亮
@@ -988,6 +992,27 @@ function birdStyle() {
                color: night ? "#a8b2cf" : alt < 12 ? "#ffd9b0" : "#ffffff", intensity: night ? 0.3 : 0.35 + 0.25 * low});
   if (ml.setSky) ml.setSky(night ? {"sky-color": "#121826", "horizon-color": "#2a3148", "sky-horizon-blend": 0.5}
                                  : {"sky-color": alt < 8 ? "#8a9fd4" : "#9cc6f0", "horizon-color": alt < 8 ? "#f7c9a3" : "#eef4f8", "sky-horizon-blend": 0.6});
+  if (SIMPLE) simpleBld(night);
+}
+// 簡潔導航（10/27 使用者朋友回饋：真正要導航的人只需要知道怎麼走）
+//   建物攤平成淺色街廓、不顯示行道樹、沉浸式不顯示熱度圖／UTCI／天氣與下雨動畫／街景按鈕；路線、轉彎提示、路名、地標照常
+let SIMPLE = false;
+try { SIMPLE = localStorage.getItem("navSimple") === "1"; } catch (e) {}
+function simpleBld(night) {
+  ml.setPaintProperty("bld", "fill-extrusion-color", night ? "#2e3338" : "#e2e4e3");
+  ml.setPaintProperty("bld", "fill-extrusion-height", 0);
+}
+function setSimple(on) {
+  SIMPLE = on; try { localStorage.setItem("navSimple", on ? "1" : "0"); } catch (e) {}
+  document.body.classList.toggle("simple", on);
+  swTxt("#simple", "簡潔導航", on); $("#immSimple").setAttribute("aria-pressed", on);
+  if (!ml || !ml.getLayer("bld")) return;
+  if (!on) ml.setPaintProperty("bld", "fill-extrusion-height", ["get", "h"]);
+  birdKey = ""; immSunKey = "";
+  if (IMM.on) {
+    immSun(immClock()); mlTreeStyle(true);
+    ml.setLayoutProperty("utci", "visibility", IMM.heat && !on ? "visible" : "none");
+  } else mlStreetStyle();
 }
 function mlStreetStyle(imm = IMM.on) {
   if (!imm) birdStyle();
@@ -1492,7 +1517,7 @@ function grow() {
   const dur = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1200, t0 = performance.now();
   const step = now => {
     const t = dur ? Math.min((now - t0) / dur, 1) : 1, k = 1 - Math.pow(1 - t, 3);      // 建物從地面「長」出來
-    ml.setPaintProperty("bld", "fill-extrusion-height", ["*", ["get", "h"], k]);
+    ml.setPaintProperty("bld", "fill-extrusion-height", SIMPLE ? 0 : ["*", ["get", "h"], k]);
     if (t < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -1557,7 +1582,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-27 第 28 版（面板與地圖淺色／深色跟時段）";
+const PAGE_VER = "2026-10-27 第 29 版（簡潔導航開關）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1670,7 +1695,7 @@ function immSun(date) {
                color: night ? "#9aa6c8" : mix(alt < 12 ? "#ffd2a0" : "#ffffff", "#e8ecf2", cl), intensity: night ? 0.25 : (0.3 + 0.25 * low) * (1 - 0.45 * cl)});
   if (ml.setSky) ml.setSky(night ? {"sky-color": mix("#0e1424", "#1c2028", cl), "horizon-color": mix("#2a3150", "#343a44", cl), "sky-horizon-blend": 0.6}
     : {"sky-color": mix(alt < 8 ? "#6f86c9" : "#7fb6ef", wxRain(w) ? "#7d858f" : "#a9b1ba", cl), "horizon-color": mix(alt < 8 ? "#f6b38a" : "#e6f1fb", "#c9ced4", cl), "sky-horizon-blend": 0.7});
-  rainSet(w);
+  rainSet(SIMPLE ? null : w);
   const wl = $("#immWx"); wl.hidden = !w; if (w) wl.textContent = `預報 ${String(w.h).padStart(2, "0")}:00　${wxText(w)}`;
   ml.setPaintProperty("s-bg", "background-color", C.bg);
   if (ml.getLayer("photo")) ml.setPaintProperty("photo", "raster-brightness-max", night ? 0.35 : 1);
@@ -1679,6 +1704,7 @@ function immSun(date) {
   ml.setPaintProperty("s-leaf", "fill-extrusion-color", leafColor(C)); ml.setPaintProperty("s-trunk", "fill-extrusion-color", C.trunk);
   ml.setPaintProperty("bld", "fill-extrusion-color", ["match", ["get", "k"], 0, C.fac[0], 1, C.fac[1], 2, C.fac[2], 3, C.fac[3], 4, C.fac[4], C.fac[5]]);
   const lab = $("#immSunTxt"); if (lab) lab.textContent = night ? "夜間" : `太陽 ${dirName(az)}方、仰角 ${Math.round(alt)}°`;
+  if (SIMPLE) simpleBld(night);
 }
 const dirName = a => ["北", "東北", "東", "東南", "南", "西南", "西", "西北"][Math.round(a / 45) % 8];
 function immClock() {   // 沉浸式畫面現在代表的時刻
@@ -1741,7 +1767,7 @@ function immStyle(on) {
   IMM_LAYERS.forEach(id => ml.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
   ["route-solid", "route-dash"].forEach(id => ml.setLayoutProperty(id, "visibility", on ? "none" : "visible"));
   mlMarkers.forEach(m => m.getElement().style.display = on ? "none" : "");
-  ml.setLayoutProperty("utci", "visibility", on && !IMM.heat ? "none" : "visible");
+  ml.setLayoutProperty("utci", "visibility", on && (!IMM.heat || SIMPLE) ? "none" : "visible");
   ml.setPaintProperty("utci", "raster-opacity", on ? 0.55 : 0.8);
   if (on) { immSunKey = ""; immSun(immClock()); }
   else {
@@ -2145,6 +2171,9 @@ function immWire() {
   $("#immRe").onclick = () => { IMM.follow = true; IMM.cb = null; $("#immRe").hidden = true; };
   $("#immN").onclick = () => { IMM.north = !IMM.north; $("#immN").setAttribute("aria-pressed", IMM.north); IMM.follow = true; $("#immRe").hidden = true;
     toast(IMM.north ? "北方朝上" : "跟著前進方向", 1500); };
+  $("#simple").onclick = () => setSimple(!SIMPLE);
+  $("#immSimple").onclick = () => setSimple(!SIMPLE);
+  setSimple(SIMPLE);
   $("#immHeat").onclick = () => { IMM.heat = !IMM.heat; $("#immHeat").setAttribute("aria-pressed", IMM.heat); ml.setLayoutProperty("utci", "visibility", IMM.heat ? "visible" : "none"); };
   // 街景：Google 條款不允許把街景嵌在非 Google 地圖旁邊 → 用官方 Maps URLs 連結開新分頁（網址在 immRender 更新）
 }
