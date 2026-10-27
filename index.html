@@ -217,7 +217,11 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
 #imm .recenter{pointer-events:auto;align-self:center;margin-bottom:8px}
 #imm .recenter[hidden]{display:none}
 #imm .note{font-size:11px;color:var(--muted);text-align:center}
-#immGo{color:var(--shade);font-weight:700}
+#immGo{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:52px;margin:10px 0 4px;padding:10px 14px;border:0;border-radius:14px;
+  background:var(--shade);color:#fff;font:inherit;font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgb(0 0 0 / .18)}
+#immGo .gi{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:rgb(255 255 255 / .22);font-size:14px}
+#immGo small{font-size:12px;font-weight:500;opacity:.85}
+#immGo:active{transform:translateY(1px)}
 #immGo[hidden]{display:none}
 .gpsraw{width:12px;height:12px;border-radius:50%;background:#8a90a8;border:2px solid #fff;opacity:.85}
 .walker{width:22px;height:22px;border-radius:50%;background:#1a73e8;border:3px solid #fff;box-shadow:0 0 0 6px rgb(26 115 232 / .25),0 2px 6px rgb(0 0 0 / .35);position:relative}
@@ -299,7 +303,8 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
         <button class="rc fast" id="cardFast" aria-pressed="false"><span class="k"><i></i>最快路線</span><span class="v" id="vFast">–</span><span class="m" id="mFast"></span></button>
       </div>
       <div id="delta" hidden></div>
-      <div class="sheet-head"><span class="hint" id="stepsTitle">路線說明</span><span><button id="immGo" hidden>▶ 沉浸式導航</button><button id="toggleSteps">收合</button></span></div>
+      <button id="immGo" hidden><span class="gi">▶</span>開始導航<small>沉浸式・跟著你的位置</small></button>
+      <div class="sheet-head"><span class="hint" id="stepsTitle">路線說明</span><span><button id="toggleSteps">收合</button></span></div>
       <ol id="steps"></ol>
       <p id="about"></p>
     </section>
@@ -330,6 +335,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
         </div>
         <div class="ctl">
           <button class="iconbtn" id="immGps" aria-pressed="false" title="用手機定位，跟著你的實際位置導航">跟隨定位</button>
+          <button class="iconbtn" id="immSim" aria-pressed="false" title="不用定位，沿路線自動播放一次">模擬播放</button>
           <button class="iconbtn" id="immPlay" aria-label="暫停">❚❚</button>
           <button class="iconbtn" id="immSpd" title="播放速度">8×</button>
           <input type="range" id="immBar" min="0" max="1000" value="0" aria-label="路線進度">
@@ -1262,7 +1268,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-26 第 17 版（跟隨定位：圖示跟著實際位置與方向）";
+const PAGE_VER = "2026-10-26 第 18 版（大的開始導航按鈕、預設跟隨定位）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1606,6 +1612,8 @@ function immModeTxt() { $("#immMode").textContent = `模擬播放（步行 1.2 m
 function immSetPlay(p) { IMM.play = p; $("#immPlay").textContent = p ? "❚❚" : "▶"; $("#immPlay").setAttribute("aria-label", p ? "暫停" : "播放"); if (p && IMM.t >= immM.T) IMM.t = 0; }
 async function immEnter() {
   const r = state.res; if (!r) return;
+  immOriPerm();   // iPhone 指南針權限要在點擊當下問，不能等載入完
+
   const m = state.sel === "cool" ? r.cool : r.fast;
   IMM.was3d = ml3d;
   if (!ml3d) await set3D(true);
@@ -1617,8 +1625,11 @@ async function immEnter() {
   $(".maplibregl-ctrl-top-right") && ($(".maplibregl-ctrl-top-right").style.display = "none");
   Object.assign(IMM, {on: true, t: 0, follow: true, last: 0, cb: null}); $("#immRe").hidden = true;
   immSunKey = ""; immSun(immClock());   // 進入後再套一次天氣（下雨動畫要在沉浸式開啟後才啟動）
-  immSetPlay(!matchMedia("(prefers-reduced-motion: reduce)").matches);
+  immSetPlay(false);
   requestAnimationFrame(immFrame);
+  // 10/27：進來直接跟隨定位；模擬播放改成按鈕自己選。這個環境拿不到定位就先停在起點，請使用者按「模擬播放」
+  if (navigator.geolocation && geoEnv() === "ok") immGpsOn(true);
+  else { IMM.dd = 0; immGpsOff(); toast(geoMsg() + " 可以先按「模擬播放」看路線。", 9000); }
 }
 function immLoad(m) {   // 把一條路線放進沉浸式畫面（第一次進入、偏離重新規劃都用這個）
   immM = immBuild(m, state.slot);
@@ -1777,20 +1788,24 @@ function immGpsErr(e) {   // 拒絕權限才停止；暫時拿不到位置（室
   if (!IMM.weak) toast("暫時拿不到定位，畫面先停在最後的位置", 4000);
   IMM.weak = true;
 }
-async function immGpsOn() {
-  if (!navigator.geolocation) { toast(geoEnv() === "ok" ? "這個瀏覽器不支援定位" : geoMsg(), 9000); return; }
-  // 指南針（iPhone 要在按鈕點擊當下詢問權限；拒絕或不支援就只用移動方向）
+// 指南針（iPhone 要在按鈕點擊當下詢問權限；拒絕或不支援就只用移動方向）
+function immOriPerm() {
   const DOE = window.DeviceOrientationEvent;
-  if (DOE && typeof DOE.requestPermission === "function") { try { await DOE.requestPermission(); } catch (e) {} }
+  if (DOE && typeof DOE.requestPermission === "function") return DOE.requestPermission().catch(() => {});
+  return Promise.resolve();
+}
+async function immGpsOn(askedPerm) {
+  if (!navigator.geolocation) { toast(geoEnv() === "ok" ? "這個瀏覽器不支援定位" : geoMsg(), 9000); return; }
+  if (!askedPerm) await immOriPerm();
   addEventListener("deviceorientationabsolute", immOri); addEventListener("deviceorientation", immOri);
   immSetPlay(false);
   Object.assign(IMM, {gps: true, gd: 0, dd: 0, off: 0, lastRe: 0, follow: true, cb: null, weak: false,
     fix: null, rp: null, tgt: null, anc: null, hd: null, hdT: 0, cmp: null, cmpT: 0, offM: 0});
-  IMM.watch = navigator.geolocation.watchPosition(immFix, immGpsErr, {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000});
-  try { IMM.lock = await navigator.wakeLock.request("screen"); } catch (e) { IMM.lock = null; }   // 導航中不讓螢幕關掉（不支援就算了）
-  $("#immGps").setAttribute("aria-pressed", true); $("#immRe").hidden = true;
+  $("#immGps").setAttribute("aria-pressed", true); $("#immSim").setAttribute("aria-pressed", false); $("#immRe").hidden = true;
   for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = true;
   $("#immMode").textContent = "跟隨定位中・等待第一筆定位…";
+  IMM.watch = navigator.geolocation.watchPosition(immFix, immGpsErr, {enableHighAccuracy: true, maximumAge: 1000, timeout: 15000});
+  try { const lk = await navigator.wakeLock.request("screen"); if (IMM.gps) IMM.lock = lk; else lk.release(); } catch (e) {}   // 導航中不讓螢幕關掉（不支援就算了）
 }
 function immGpsOff() {
   if (IMM.watch != null) navigator.geolocation.clearWatch(IMM.watch);
@@ -1798,13 +1813,14 @@ function immGpsOff() {
   removeEventListener("deviceorientationabsolute", immOri); removeEventListener("deviceorientation", immOri);
   try { IMM.lock && IMM.lock.release(); } catch (e) {} IMM.lock = null;
   immRaw && immRaw.remove();
-  $("#immGps").setAttribute("aria-pressed", false);
+  $("#immGps").setAttribute("aria-pressed", false); $("#immSim").setAttribute("aria-pressed", true);
   for (const id of ["#immPlay", "#immSpd", "#immBar"]) $(id).hidden = false;
   immModeTxt();
   IMM.t = immM ? immTimeAt(IMM.dd) : 0;
 }
 function immWire() {
-  $("#immGps").onclick = () => IMM.gps ? immGpsOff() : immGpsOn();
+  $("#immGps").onclick = () => { if (!IMM.gps) immGpsOn(); };
+  $("#immSim").onclick = () => { if (IMM.gps) immGpsOff(); immSetPlay(true); };
   $("#immNew").onclick = () => { const f = IMM.fix; $("#immNew").hidden = true; if (f) immReroute(f.lat, f.lon); };
   $("#immGo").onclick = immEnter; $("#immX").onclick = immExit;
   $("#immPlay").onclick = () => immSetPlay(!IMM.play);
