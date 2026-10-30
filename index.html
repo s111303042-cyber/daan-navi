@@ -387,7 +387,7 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
           <button class="iconbtn" id="immSpd" title="播放速度">8×</button>
           <input type="range" id="immBar" min="0" max="1000" value="0" aria-label="路線進度">
         </div>
-        <div class="note"><span id="immMode">模擬播放（依步行 1.2 m/s 與紅燈等待）</span>・光影：<span id="immSunTxt"></span>・建物：國土測繪中心・車道與公園：© OpenStreetMap contributors・樹：臺北市行道樹與公園樹</div>
+        <div class="note"><span id="immMode">模擬播放（依步行 4 km/h）</span>・光影：<span id="immSunTxt"></span>・建物：國土測繪中心・車道與公園：© OpenStreetMap contributors・樹：臺北市行道樹與公園樹</div>
       </div>
     </div>
   </div>
@@ -399,7 +399,8 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
 // ======== 參數（與 route v3 相同） ========
 // 步行：時間 ≤ 最快路線 1.1 倍內，熱負荷最小（2026-10-30 決定，依 Ma et al. 2025 繞路效益在 110% 趨平）
 // 雨天與 YouBike 電輔車尚未重新討論，維持 1.3 倍
-const SPEED = 1.2, DETOUR = 1.10, RAIN_DETOUR = 1.30, BIKE_DETOUR = 1.30;
+// 步行速度 4 km/h ≈ 1.11 m/s：與 UTCI 參考人相同（Jendritzky et al. 2012；Bröde et al. 2012），2026-10-30 由 1.2 m/s 改
+const SPEED = 4 / 3.6, DETOUR = 1.10, RAIN_DETOUR = 1.30, BIKE_DETOUR = 1.30;
 const XING_WAIT = {mean: 5, worst: 10};
 const USE_WAIT = false;   // 2026-10-30 暫時關閉等紅燈（號誌與無號誌過馬路都不等），改回 true 即恢復
 const $ = s => document.querySelector(s);
@@ -551,7 +552,7 @@ function metrics(path, s, mode) {
           rain: wet / SPEED + wait, shelter: 1 - wet / L};   // 雨天：估算淋雨秒數（露天步行＋等紅燈）、遮蔽比例
 }
 // ======== 雨天模式（2026-10-25）：時間 ≤ 最快 1.3 倍下，估算淋雨時間最少（精確解） ========
-// 淋雨秒數 = Σ 長度 × (1 − 遮蔽機率) ÷ 1.2 m/s ＋ 等紅燈秒數；遮蔽機率 = 街景抽查的實際比例（期望值模型）
+// 淋雨秒數 = Σ 長度 × (1 − 遮蔽機率) ÷ 步行速度 ＋ 等紅燈秒數；遮蔽機率 = 街景抽查的實際比例（期望值模型）
 // 資源限制最短路徑：A*（剩餘淋雨下界）＋ 支配剪枝，狀態 = 點 × 剛等過的號誌路口與方向（同 route）
 const wetLen = e => D.elen[e] * (1 - SH[e] / 100);
 function revDist(t, wf) {
@@ -1629,7 +1630,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-30 第 34 版（步行 1.1 倍內熱負荷最小；逐格熱超量；暫不計等紅燈）";
+const PAGE_VER = "2026-10-30 第 35 版（步速 4 km/h 同 UTCI 參考人）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -1970,7 +1971,7 @@ function immRender(dt) {
   const uc = $("#immU"); uc.textContent = `${u.toFixed(1)}°C${g.bike ? "・騎車" : g.sun == null ? "" : g.sun > 0.5 ? "・曬" : "・蔭"}`; uc.style.background = uColor(u); uc.style.color = u < 9 ? "#fff" : "#1d2523";
   if (!IMM.gps && document.activeElement !== $("#immBar")) $("#immBar").value = Math.round(IMM.t / R.T * 1000);
 }
-function immModeTxt() { $("#immMode").textContent = `模擬播放（步行 1.2 m/s${immM && immM.bike ? "、騎車依 YouBike 紀錄車速、借還車各 1 分鐘" : ""}，含紅燈等待）`; }
+function immModeTxt() { $("#immMode").textContent = `模擬播放（步行 4 km/h${immM && immM.bike ? "、騎車依 YouBike 紀錄車速、借還車各 1 分鐘" : ""}${USE_WAIT ? "，含紅燈等待" : ""}）`; }
 function immSetPlay(p) { IMM.play = p; $("#immPlay").textContent = p ? "❚❚" : "▶"; $("#immPlay").setAttribute("aria-label", p ? "暫停" : "播放"); if (p && IMM.t >= immM.T) IMM.t = 0; }
 async function immEnter() {
   const r = state.res; if (!r) return;
@@ -2118,7 +2119,7 @@ function immFix(p) {
 }
 function immGpsTxt() {
   const f = IMM.fix; if (!f) return;
-  $("#immMode").textContent = `跟隨定位中・誤差約 ${Math.round(f.acc)} m${IMM.off >= OFF_N ? `・離路線約 ${Math.round(IMM.offM)} m` : ""}（預估時間以步行 1.2 m/s${immM.bike ? "、騎車依 YouBike 紀錄車速" : ""}與紅燈平均等待計算）`;
+  $("#immMode").textContent = `跟隨定位中・誤差約 ${Math.round(f.acc)} m${IMM.off >= OFF_N ? `・離路線約 ${Math.round(IMM.offM)} m` : ""}（預估時間以步行 4 km/h${immM.bike ? "、騎車依 YouBike 紀錄車速" : ""}與紅燈平均等待計算）`;
 }
 // 10/27 方向平滑：急轉 90 度的原因是方向來源會跳（GPS 方向、兩次定位連線、指南針三種來源輪流用，且直接套用沒有平滑）
 // 改成：在路線上走 → 用路線方向（看前方 25 m，轉彎前就開始慢慢轉）；偏離路線走 → 用移動方向；站著 3 秒以上 → 指南針。
@@ -2243,7 +2244,7 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
       ["38–46", "非常強熱壓力"], ["&gt;46", "極端熱壓力"]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("") +
       (D.cold_low != null ? `<span>&lt;${D.cold_low}</span><span>本研究的偏冷負荷（非標準冷壓力）</span>` : "");
   }
-  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；${D.source ? "氣象輸入是隔天的預報：氣溫、濕度用新版 MOS 修正（ECMWF IFS、GFS、ICON、JMA MSM 四個數值模式平均，加上臺北站近 1 週同時段的誤差修正），氣溫再用歷史上天氣最相近的 20 天修正；風速、日射用 MOS 修正（四模式晴空指數與雲量）。以臺北站實測回測，氣溫平均誤差約 0.8°C。天氣現象與降雨機率來自中央氣象署鄉鎮天氣預報。" : ""}建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；${USE_WAIT ? "號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。" : "目前暫時不計等紅燈時間（過馬路只算步行）。"}最涼路線＝總時間不超過最快路線 ${DETOUR} 倍的所有走法中，熱負荷最低者（多標籤 Dijkstra 精確求解，不是從幾條候選路線裡挑）。熱負荷＝每段路 UTCI 超過 32°C 的度數${D.hx ? "（每個 2 m 格子先算超過幾度，再取路段平均）" : ""} × 步行分鐘${USE_WAIT ? "，等紅燈用路口 UTCI × 等待分鐘" : ""}，全路線相加；超過幾度就算幾度，不設上限。1.1 倍依據 Ma et al. 2025：繞路超過 110% 後避熱效益趨平。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱負荷與偏冷負荷（°C·min）直接相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。${GR ? "<br>綠覆率：沿路每 1 m 取一點，落在樹冠或草地上的比例；樹冠與土地覆蓋就是 SOLWEIG 計算 UTCI 用的 2 m 網格（臺北市行道樹與公園樹實測、OpenStreetMap 樹木，加上 Meta 全球樹冠高度資料）。綠覆率不分時段；「曬」則是該時段被建物或樹遮住後的結果。" : ""}<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>街道與路名：道路寬度依 OpenStreetMap 道路中心線與路型估計（© OpenStreetMap contributors），路名與斑馬線來自本研究路網；只是示意，不是實際車道邊界。電子地圖（開啟時）：內政部國土測繪中心「臺灣通用電子地圖」WMTS（熱度圖開時用灰階版，3D 用無文字版並由本網頁標路名）。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
+  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；${D.source ? "氣象輸入是隔天的預報：氣溫、濕度用新版 MOS 修正（ECMWF IFS、GFS、ICON、JMA MSM 四個數值模式平均，加上臺北站近 1 週同時段的誤差修正），氣溫再用歷史上天氣最相近的 20 天修正；風速、日射用 MOS 修正（四模式晴空指數與雲量）。以臺北站實測回測，氣溫平均誤差約 0.8°C。天氣現象與降雨機率來自中央氣象署鄉鎮天氣預報。" : ""}建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；${USE_WAIT ? "號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。" : "目前暫時不計等紅燈時間（過馬路只算步行）。"}步行速度 4 km/h（約 1.11 m/s），與 UTCI 定義的參考人相同。最涼路線＝總時間不超過最快路線 ${DETOUR} 倍的所有走法中，熱負荷最低者（多標籤 Dijkstra 精確求解，不是從幾條候選路線裡挑）。熱負荷＝每段路 UTCI 超過 32°C 的度數${D.hx ? "（每個 2 m 格子先算超過幾度，再取路段平均）" : ""} × 步行分鐘${USE_WAIT ? "，等紅燈用路口 UTCI × 等待分鐘" : ""}，全路線相加；超過幾度就算幾度，不設上限。1.1 倍依據 Ma et al. 2025：繞路超過 110% 後避熱效益趨平。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱負荷與偏冷負荷（°C·min）直接相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。${GR ? "<br>綠覆率：沿路每 1 m 取一點，落在樹冠或草地上的比例；樹冠與土地覆蓋就是 SOLWEIG 計算 UTCI 用的 2 m 網格（臺北市行道樹與公園樹實測、OpenStreetMap 樹木，加上 Meta 全球樹冠高度資料）。綠覆率不分時段；「曬」則是該時段被建物或樹遮住後的結果。" : ""}<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>街道與路名：道路寬度依 OpenStreetMap 道路中心線與路型估計（© OpenStreetMap contributors），路名與斑馬線來自本研究路網；只是示意，不是實際車道邊界。電子地圖（開啟時）：內政部國土測繪中心「臺灣通用電子地圖」WMTS（熱度圖開時用灰階版，3D 用無文字版並由本網頁標路名）。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
   initMap();
   loadWeather();
   wireSearch($("#qa"), $("#sa"), "A"); wireSearch($("#qb"), $("#sb"), "B");
