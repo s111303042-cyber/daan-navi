@@ -397,8 +397,11 @@ body:has(#imm:not([hidden])) #toast{top:auto;bottom:calc(max(12px,env(safe-area-
 <script>
 "use strict";
 // ======== 參數（與 route v3 相同） ========
-const SPEED = 1.2, DETOUR = 1.30, WS = [0, 0.5, 1, 2, 4, 8, 16, 32];
+// 步行：時間 ≤ 最快路線 1.1 倍內，熱負荷最小（2026-10-30 決定，依 Ma et al. 2025 繞路效益在 110% 趨平）
+// 雨天與 YouBike 電輔車尚未重新討論，維持 1.3 倍
+const SPEED = 1.2, DETOUR = 1.10, RAIN_DETOUR = 1.30, BIKE_DETOUR = 1.30;
 const XING_WAIT = {mean: 5, worst: 10};
+const USE_WAIT = false;   // 2026-10-30 暫時關閉等紅燈（號誌與無號誌過馬路都不等），改回 true 即恢復
 const $ = s => document.querySelector(s);
 // 熱度：上限 = 臺北極端高溫日 2020-07-24 戶外 UTCI 的 P99（graph.json 的 heat_cap；舊資料沒有就用 46）
 const heat = u => Math.min(Math.max((u - (D.heat_low ?? 32)) / ((D.heat_cap ?? 46) - (D.heat_low ?? 32)), 0), 1);
@@ -441,7 +444,7 @@ async function load() {
     adjEdge[fill[a]] = e; adjNode[fill[a]++] = b;
     adjEdge[fill[b]] = e; adjNode[fill[b]++] = a;
   }
-  UT = dec(D.utci, D); SUN = b64(D.sun); GR = D.green ? b64(D.green) : null; SH = D.shelter ? b64(D.shelter) : null;   // 雨天：每段路遮蔽機率（%）
+  UT = dec(D.utci, D); if (D.hx) { const a = b64(D.hx); HX = new Uint16Array(a.buffer, a.byteOffset, a.length >> 1); } SUN = b64(D.sun); GR = D.green ? b64(D.green) : null; SH = D.shelter ? b64(D.shelter) : null;   // 雨天：每段路遮蔽機率（%）
   CL = D.clusters.map(c => ({...c, x: (c.lon - lon0) * kx, y: (c.lat - lat0) * ky}));
   // 穿越邊：號誌路口編號（-1 無號誌，-2 不是穿越邊）、0 沿主路 / 1 穿越主路、無號誌等待秒數
   xCl = new Int32Array(NE).fill(-2); xTyp = new Uint8Array(NE); xBase = new Float32Array(NE);
@@ -458,6 +461,9 @@ function dec(s, J) {
   return {a: new Uint16Array(a.buffer, a.byteOffset, a.length >> 1), off: J.u_off, step: J.u_step};
 }
 const eU = (e, s) => UT.off + UT.a[e * (D.ns || 48) + s - (D.s0 || 0)] * UT.step;
+// 每段熱超量（°C）：graph.json 有 hx 時用「逐格 max(UTCI − 32, 0) 再取平均」（2026-10-30），沒有就退回用路段平均 UTCI
+let HX = null;
+const eH = (e, s) => HX ? HX[e * (D.ns || 48) + s - (D.s0 || 0)] * D.hx_step : hOver(eU(e, s));
 function nodeUtci(s) {
   if (nodeU[s]) return nodeU[s];
   const a = new Float32Array(NN);
@@ -482,6 +488,7 @@ function nearestNode(lat, lon) {
 const nearCluster = (n, k) => Math.hypot(X[n] - CL[k].x, Y[n] - CL[k].y) <= CL[k].r;
 function crossWait(e, s, mode) {
   const k = xCl[e];
+  if (!USE_WAIT) return {sec: 0, key: -1, k: -1};
   if (k < 0) return {sec: xBase[e] * (mode === "worst" ? 2 : 1), key: -1, k: -1};
   const w = CL[k].w[s], across = xTyp[e] === 1;
   return {sec: across ? (mode === "worst" ? w[3] : w[2]) : (mode === "worst" ? w[1] : w[0]), key: k * 2 + xTyp[e], k, across};
@@ -525,7 +532,7 @@ function metrics(path, s, mode) {
   for (let i = 0; i + 1 < path.length; i++) {
     const a = path[i], b = path[i + 1], e = edgeBetween(a, b), l = D.elen[e], u = eU(e, s), sun = SUN[e * (D.ns || 48) + s - (D.s0 || 0)] / 100;
     L += l; U += u * l; S += sun * l; if (u > 46) X46 += l; comp[D.ekind[e]] += l; if (GR) Gn += GR[e] / 100 * l;
-    H += l / SPEED / 60 * hOver(u); C += l / SPEED / 60 * cUnder(u);
+    H += l / SPEED / 60 * eH(e, s); C += l / SPEED / 60 * cUnder(u);
     const p = SH ? SH[e] / 100 : 0; wet += l * (1 - p);
     const seg = {e, a, b, l, u, sun, p, wait: null, cross: xCl[e] !== -2};
     if (seg.cross) {
@@ -580,18 +587,58 @@ function rainRoute(o, t, s, mode, T) {
 }
 function planRain(o, t, s, mode) {
   const p0 = route(o, t, s, 0, mode, false); if (!p0) return null;
-  const fast = metrics(p0, s, mode), p = rainRoute(o, t, s, mode, DETOUR * fast.total * 60);
+  const fast = metrics(p0, s, mode), p = rainRoute(o, t, s, mode, RAIN_DETOUR * fast.total * 60);
   return {fast, cool: p ? metrics(p, s, mode) : fast};
+}
+// ======== 步行（2026-10-30 新方法）：時間 ≤ 最快 1.1 倍下，熱負荷最小（精確解） ========
+// 每段熱負荷 = max(UTCI − 32, 0) × 步行分鐘；等紅燈用路口 UTCI × 等待分鐘；路線熱負荷 = 各段相加（偏冷負荷同理相加）
+// 資源限制最短路徑（多標籤 Dijkstra）：A*（剩餘負荷下界）＋ 支配剪枝，寫法同雨天模式 rainRoute
+// 「避開人車共道」開啟時，人車共道的步行時間以 1.5 倍計入時間上限（與最快路線的算法一致）
+const eDose = (e, s) => D.elen[e] / SPEED / 60 * (eH(e, s) + cUnder(eU(e, s)));
+const eSec = (e, safe) => D.elen[e] / SPEED * (safe && D.ekind[e] === 2 ? SAFE : 1);
+function pathSec(path, s, mode, safe) {   // 路線的（加權）秒數，算法與 heatRoute 相同
+  let T = 0, paid = -1;
+  for (let i = 0; i + 1 < path.length; i++) {
+    const e = edgeBetween(path[i], path[i + 1]), v = path[i + 1]; T += eSec(e, safe);
+    if (xCl[e] !== -2) { const W = crossWait(e, s, mode); if (W.key < 0 || W.key !== paid) T += W.sec; if (W.key >= 0) paid = W.key; }
+    else if (paid >= 0 && !nearCluster(v, paid >> 1)) paid = -1;
+  }
+  return T;
+}
+let heatStat = null;   // 最近一次計算的標籤數與耗時（驗證用）
+function heatRoute(o, t, s, mode, safe, T) {
+  const t0 = performance.now(), nu = nodeUtci(s), ht = revDist(t, e => D.elen[e]), hd = revDist(t, e => eDose(e, s));
+  const NK = 2 * CL.length + 1, labels = new Map(), TB = 1e-6;   // TB：負荷相同時偏好時間短（1 秒 ≈ 1e-6 °C·min）
+  const ln = [o], lp = [-1], ld = [0], lt = [0], lpar = [-1], h = new Heap(); h.push(hd[o] + TB * ht[o] / SPEED, 0);
+  let n = 0;
+  while (h.size) {
+    const id = h.pop()[1], u = ln[id], paid = lp[id];
+    if (u === t) { heatStat = {pops: n, labels: ln.length, ms: performance.now() - t0};
+      const path = []; for (let q = id; q >= 0; q = lpar[q]) path.push(ln[q]); return path.reverse(); }
+    if (++n > 3e6) return null;
+    for (let j = adjStart[u]; j < adjStart[u + 1]; j++) {
+      const e = adjEdge[j], v = adjNode[j]; let wt = 0, np = paid;
+      if (xCl[e] !== -2) { const W = crossWait(e, s, mode); if (W.key < 0 || W.key !== paid) wt = W.sec; if (W.key >= 0) np = W.key; }
+      else if (paid >= 0 && !nearCluster(v, paid >> 1)) np = -1;
+      const nt = lt[id] + eSec(e, safe) + wt; if (nt + ht[v] / SPEED > T + 1e-6) continue;
+      const nd = ld[id] + eDose(e, s) + wt / 60 * (hOver(nu[v]) + cUnder(nu[v])), key = v * NK + np + 1, L = labels.get(key) || [];
+      let dom = false; for (let k = 0; k < L.length; k += 2) if (L[k] <= nd + 1e-9 && L[k + 1] <= nt + 1e-9) { dom = true; break; }
+      if (dom) continue;
+      const L2 = []; for (let k = 0; k < L.length; k += 2) if (!(nd <= L[k] && nt <= L[k + 1])) L2.push(L[k], L[k + 1]);
+      L2.push(nd, nt); labels.set(key, L2);
+      lpar.push(id); ln.push(v); lp.push(np); ld.push(nd); lt.push(nt); h.push(nd + hd[v] + TB * (nt + ht[v] / SPEED), ln.length - 1);
+    }
+  }
+  return null;
 }
 function plan(o, t, s, mode, safe) {
   if (state.rain && SH) return planRain(o, t, s, mode);
-  const rows = [];
-  for (const w of WS) { const p = route(o, t, s, w, mode, safe); if (p) { const m = metrics(p, s, mode); m.w = w; rows.push(m); } }
-  if (!rows.length) return null;
-  const fast = rows[0];
-  const ok = rows.filter(r => r.total <= DETOUR * fast.total + 1e-9);
-  const cool = ok.reduce((a, b) => b.dose < a.dose ? b : a);
-  return {fast, cool};
+  const p0 = route(o, t, s, 0, mode, safe); if (!p0) return null;
+  const fast = metrics(p0, s, mode);
+  if (fast.dose < ZERO) return {fast, cool: fast};   // 最快路線幾乎沒有負荷 → 不必繞路
+  const p = heatRoute(o, t, s, mode, safe, DETOUR * pathSec(p0, s, mode, safe));
+  const cool = p ? metrics(p, s, mode) : fast;
+  return {fast, cool: cool.dose < fast.dose ? cool : fast};
 }
 
 // ======== YouBike：走到借車站 → 借車 → 騎車 → 還車 → 走到終點 ========
@@ -759,7 +806,7 @@ function planBike(A, B, s, mode, safe) {
   const fast = cands[0];
   let ok, over = false;
   if (state.bikeType === "一般車") { ok = cands.filter(c => c.billSlow <= FREE_MIN); if (!ok.length) { ok = [fast]; over = true; } }
-  else ok = cands.filter(c => c.total <= DETOUR * fast.total + 1e-9);
+  else ok = cands.filter(c => c.total <= BIKE_DETOUR * fast.total + 1e-9);
   const cool = ok.reduce((a, b) => b.dose < a.dose ? b : a);
   return {bike: true, fast, cool, over};
 }
@@ -781,7 +828,7 @@ const bikeRoads = m => roadTable(bikeGroups(m.bk).map(g => ({lab: g.nm || "", l:
 const secTxt = sec => { sec = Math.round(sec); return sec >= 60 ? `${Math.floor(sec / 60)} 分${sec % 60 ? ` ${sec % 60} 秒` : "鐘"}` : `${sec} 秒`; };
 function whyShow(items, bike) {
   const w = $("#why"); if (!items) { w.hidden = true; return; }
-  const rule = bike && state.bikeType === "一般車" ? "慢騎也能在免費 30 分鐘內還車的走法中，負荷最低的一條" : "總時間不超過最快路線 1.3 倍的走法中，負荷最低的一條";
+  const rule = bike && state.bikeType === "一般車" ? "慢騎也能在免費 30 分鐘內還車的走法中，負荷最低的一條" : `總時間不超過最快路線 ${bike ? BIKE_DETOUR : DETOUR} 倍的走法中，負荷最低的一條`;
   items.push(`<li class="src">依據：${D.day ? D.day.replace(/^(\d{4})-?(\d{2})-?(\d{2}).*/, "$1-$2-$3") + " " : ""}${slotLabel(state.slot)} 的 SOLWEIG 模擬 UTCI（2 m 解析度）、號誌等待估計與路網；` +
     `${KIND_NAME[state.kind]}路線＝${rule}。數字是模型估計，未含當天雲量與風的變化。</li>`);
   $("#whyList").innerHTML = items.join(""); w.hidden = false;
@@ -805,7 +852,7 @@ function whyWalk(f, c) {
   if (c.green != null) out.push(greenTxt(f, c));
   const xf = Math.round(f.extreme * 100), xc = Math.round(c.extreme * 100);
   if (k !== "cold" && (xf || xc) && xf !== xc) out.push(`<li><b>極端熱壓力：</b>UTCI 超過 46°C 的路段 ${xf}% → <b>${xc}%</b>。</li>`);
-  out.push(`<li><b>代價：</b>${Math.abs(dl) < 10 && Math.abs(dt) < 10 ? "距離和時間幾乎一樣" : `${dl >= 0 ? `多走 ${Math.round(dl)} m` : `少走 ${Math.round(-dl)} m`}，${dt > 0 ? `多花約 ${secTxt(dt)}` : `還快約 ${secTxt(-dt)}`}`}（等紅燈 ${fmtMin(f.wait)} → ${fmtMin(c.wait)} 分、號誌 ${f.nsig} → ${c.nsig} 個）。</li>`);
+  out.push(`<li><b>代價：</b>${Math.abs(dl) < 10 && Math.abs(dt) < 10 ? "距離和時間幾乎一樣" : `${dl >= 0 ? `多走 ${Math.round(dl)} m` : `少走 ${Math.round(-dl)} m`}，${dt > 0 ? `多花約 ${secTxt(dt)}` : `還快約 ${secTxt(-dt)}`}`}${USE_WAIT ? `（等紅燈 ${fmtMin(f.wait)} → ${fmtMin(c.wait)} 分、號誌 ${f.nsig} → ${c.nsig} 個）` : ""}。</li>`);
   return out;
 }
 function whyBike(f, c, wf) {
@@ -1307,7 +1354,7 @@ function draw() {
   }
   else if (state.kind === "none") { dl.hidden = false; dl.textContent = noLoadTxt(); }
   else if (same) { dl.hidden = false; dl.textContent = `這個時段最快的路線就是${nm}的路線。`;
-    whyShow([`<li>附近沒有在 1.3 倍時間內、負荷更低的走法，所以最快路線就是${nm}路線。沿路曬到太陽 ${Math.round(r.fast.sun * 100)}%${r.fast.green == null ? "" : `、綠覆率 ${Math.round(r.fast.green * 100)}%`}，平均體感 ${r.fast.utci.toFixed(1)}°C。</li>`]); }
+    whyShow([`<li>附近沒有在 ${DETOUR} 倍時間內、負荷更低的走法，所以最快路線就是${nm}路線。沿路曬到太陽 ${Math.round(r.fast.sun * 100)}%${r.fast.green == null ? "" : `、綠覆率 ${Math.round(r.fast.green * 100)}%`}，平均體感 ${r.fast.utci.toFixed(1)}°C。</li>`]); }
   else {
     const du = r.cool.utci - r.fast.utci, dt = (r.cool.total - r.fast.total) * 60;
     dl.hidden = false;
@@ -1582,7 +1629,7 @@ const SPDS = [1, 4, 8, 16, 32];
 // 沉浸式的人物圖示：走路＝行人、騎車＝腳踏車（側面圖，永遠面向螢幕）
 const IC_WALK = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12.5" cy="4" r="2"/><path d="M12 7l-1.2 6.5L8 20.5M10.8 13.5l3.2 2.8 1 4.2M11.8 8.6L8.3 11.6M11.8 8.6l3.7 2.6"/></svg>';
 const IC_BIKE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle class="wh" cx="5.5" cy="16" r="3.8"/><circle class="wh" cx="18.5" cy="16" r="3.8"/><path class="fr" d="M5.5 16L9.5 9h6.5M9.5 9l3 7 3.5-7 2.5 7M5.5 16h7"/><path d="M8 7h3M9.5 7v2M15 6.2h2.5M16 6.2V9"/><rect class="bk" x="17.2" y="7.2" width="4.6" height="3.4" rx=".6"/></svg>';
-const PAGE_VER = "2026-10-28 第 31 版（新版預報說明）";
+const PAGE_VER = "2026-10-30 第 34 版（步行 1.1 倍內熱負荷最小；逐格熱超量；暫不計等紅燈）";
 let immIc = null, immIcMode = "";
 let SCN = null, immM = null, immMk = null, immSig = [], immRaw = null;
 const mPx = w => ["interpolate", ["exponential", 2], ["zoom"], 12, ["*", w, 4096 / 141876], 22, ["*", w, 4194304 / 141876]];   // 公尺 → 像素（北緯 25°）
@@ -2196,7 +2243,7 @@ function immHook() {   // 使用者拖曳地圖時暫停跟拍
       ["38–46", "非常強熱壓力"], ["&gt;46", "極端熱壓力"]].map(([a, b]) => `<span>${a}</span><span>${b}</span>`).join("") +
       (D.cold_low != null ? `<span>&lt;${D.cold_low}</span><span>本研究的偏冷負荷（非標準冷壓力）</span>` : "");
   }
-  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；${D.source ? "氣象輸入是隔天的預報：氣溫、濕度用新版 MOS 修正（ECMWF IFS、GFS、ICON、JMA MSM 四個數值模式平均，加上臺北站近 1 週同時段的誤差修正），氣溫再用歷史上天氣最相近的 20 天修正；風速、日射用 MOS 修正（四模式晴空指數與雲量）。以臺北站實測回測，氣溫平均誤差約 0.8°C。天氣現象與降雨機率來自中央氣象署鄉鎮天氣預報。" : ""}建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。最涼路線＝總時間不超過最快路線 1.3 倍中，熱負荷（UTCI 超過 32°C 的度數 × 分鐘，含等紅燈）最低者。路線計算的熱度 = (UTCI − 32) ÷ (${(D.heat_cap ?? 46).toFixed(2)} − 32)，上限取${D.source ? " 2020-07-24（臺北站歷史高溫日）" : "該日"}戶外 UTCI 的第 99 百分位數。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱度與偏冷度用相同跨距（約 18°C）換算成 0–1 後相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。${GR ? "<br>綠覆率：沿路每 1 m 取一點，落在樹冠或草地上的比例；樹冠與土地覆蓋就是 SOLWEIG 計算 UTCI 用的 2 m 網格（臺北市行道樹與公園樹實測、OpenStreetMap 樹木，加上 Meta 全球樹冠高度資料）。綠覆率不分時段；「曬」則是該時段被建物或樹遮住後的結果。" : ""}<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>街道與路名：道路寬度依 OpenStreetMap 道路中心線與路型估計（© OpenStreetMap contributors），路名與斑馬線來自本研究路網；只是示意，不是實際車道邊界。電子地圖（開啟時）：內政部國土測繪中心「臺灣通用電子地圖」WMTS（熱度圖開時用灰階版，3D 用無文字版並由本網頁標路名）。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
+  $("#about").innerHTML = `UTCI 為 ${D.source ? D.day + "（" + D.source + "）" : D.day + "（臺北站歷史高溫日）"} SOLWEIG 模擬，2 m 解析度；${D.source ? "氣象輸入是隔天的預報：氣溫、濕度用新版 MOS 修正（ECMWF IFS、GFS、ICON、JMA MSM 四個數值模式平均，加上臺北站近 1 週同時段的誤差修正），氣溫再用歷史上天氣最相近的 20 天修正；風速、日射用 MOS 修正（四模式晴空指數與雲量）。以臺北站實測回測，氣溫平均誤差約 0.8°C。天氣現象與降雨機率來自中央氣象署鄉鎮天氣預報。" : ""}建物高度採內政部國土測繪中心三維建物模型（113 年度更新）。路網把每條車道拆成左右兩側（實體人行道、標線型人行道或人車共道），換邊必須過馬路；${USE_WAIT ? "號誌路口的等待依臺北市路口號誌時制（平日）推估，行人綠燈閃爍時不起步。" : "目前暫時不計等紅燈時間（過馬路只算步行）。"}最涼路線＝總時間不超過最快路線 ${DETOUR} 倍的所有走法中，熱負荷最低者（多標籤 Dijkstra 精確求解，不是從幾條候選路線裡挑）。熱負荷＝每段路 UTCI 超過 32°C 的度數${D.hx ? "（每個 2 m 格子先算超過幾度，再取路段平均）" : ""} × 步行分鐘${USE_WAIT ? "，等紅燈用路口 UTCI × 等待分鐘" : ""}，全路線相加；超過幾度就算幾度，不設上限。1.1 倍依據 Ma et al. 2025：繞路超過 110% 後避熱效益趨平。${D.cold_low == null ? "" : `偏冷負荷＝UTCI 低於 ${D.cold_low}°C 的度數 × 分鐘；${D.cold_low}°C 取自香港冬季戶外的中性 UTCI（20.7°C，Lau, Yao & Ng 2026），是本研究採用的參考值，不是標準冷壓力門檻（標準 UTCI 9°C 以下才算冷壓力）。路線同時考慮熱與偏冷：熱負荷與偏冷負荷（°C·min）直接相加；推薦路線的名稱依最快路線的負荷組成而定（只有熱＝最涼、只有偏冷＝最暖、兩者都有＝低不舒適）。`}<br>YouBike：走到借車站 → 借車 1 分 → 騎車 → 還車 1 分 → 走到終點，起終點 600 m 內各試最多 6 個站。騎車速度由 2026 年 7 月大安區 84.7 萬趟租借紀錄反推（分一般道路、人車共道、自行車道與尖峰離峰，已含平均等紅燈）；熱負荷不加騎車迎面風（天熱時騎快帶來的風會被出力產熱抵銷）。一般車：騎得慢的人（第 25 百分位速度）也要在免費 30 分鐘內還車；電輔車：總時間不超過最快路線 1.3 倍。站點有沒有車尚未納入。${GR ? "<br>綠覆率：沿路每 1 m 取一點，落在樹冠或草地上的比例；樹冠與土地覆蓋就是 SOLWEIG 計算 UTCI 用的 2 m 網格（臺北市行道樹與公園樹實測、OpenStreetMap 樹木，加上 Meta 全球樹冠高度資料）。綠覆率不分時段；「曬」則是該時段被建物或樹遮住後的結果。" : ""}<br>航照（開啟時）：內政部國土測繪中心「國土測繪圖資服務雲」正射影像 WMTS。<br>街道與路名：道路寬度依 OpenStreetMap 道路中心線與路型估計（© OpenStreetMap contributors），路名與斑馬線來自本研究路網；只是示意，不是實際車道邊界。電子地圖（開啟時）：內政部國土測繪中心「臺灣通用電子地圖」WMTS（熱度圖開時用灰階版，3D 用無文字版並由本網頁標路名）。<br>地標與地點搜尋：© OpenStreetMap contributors（ODbL）；找不到時可用 OpenStreetMap 的 Nominatim 線上搜尋（只在按 Enter 或點選時查詢，限${D.area}範圍）。<br>雨天模式：總時間不超過最快路線 1.3 倍中，「估算淋雨時間」（沒有遮蔽的步行秒數＋等紅燈秒數，等燈一律算淋雨）最少的路線，用精確演算法求解。每段路的遮蔽用機率表示，來自 237 筆街景抽查：建照套繪圖標示有騎樓的路段實際有騎樓的比例 80%、沒有資料的主要道路 19%、巷弄 1%、OSM 有頂通道 24%。淋雨秒數是模型估算，沒有考慮側風、屋簷深度與騎樓被占用；UTCI 仍是晴天模擬值，只供參考。<br>網頁版本：${PAGE_VER}（手機上看到的版本不同，代表還在用舊檔案或瀏覽器快取）`;
   initMap();
   loadWeather();
   wireSearch($("#qa"), $("#sa"), "A"); wireSearch($("#qb"), $("#sb"), "B");
